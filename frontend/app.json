@@ -1,0 +1,13 @@
+{
+  "expo":{
+    "name":"Jobify",
+    "slug":"jobify-mobile",
+    "version":"1.0.0",
+    "orientation":"portrait",
+    "userInterfaceStyle":"light",
+    "scheme":"jobify",
+    "assetBundlePatterns":["**/*"],
+    "android":{"package":"com.jobify.mobile"},
+    "ios":{"bundleIdentifier":"com.jobify.mobile"}
+  }
+}
