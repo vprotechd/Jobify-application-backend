@@ -9,9 +9,11 @@ const raw = (process.env.EXPO_PUBLIC_API_URL || "")
 
 let configured =
   raw ||
-  (Platform.OS === "web"
-    ? "http://localhost:5000/api"
-    : "http://10.0.2.2:5000/api");
+  (__DEV__
+    ? Platform.OS === "web"
+      ? "http://localhost:5000/api"
+      : "http://10.0.2.2:5000/api"
+    : "https://jobify-application-backend.onrender.com/api");
 
 if (
   Platform.OS === "android" &&
