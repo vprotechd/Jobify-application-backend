@@ -68,6 +68,11 @@ const userSchema = new mongoose.Schema(
       default: "",
     },
 
+    profileImagePublicId: {
+      type: String,
+      default: "",
+    },
+
     phone: {
       type: String,
       default: "",
@@ -122,6 +127,11 @@ const userSchema = new mongoose.Schema(
     },
 
     resume: {
+      type: String,
+      default: "",
+    },
+
+    resumePublicId: {
       type: String,
       default: "",
     },

@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
+import { connectNotificationSocket } from "../services/socket";
 
 export const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
@@ -61,6 +62,10 @@ export function Header({ title, subtitle, eyebrow = "Jobify", showBack = true })
 
   useFocusEffect(React.useCallback(() => {
     loadUnread();
+    let alive = true;
+    let socket;
+    (async () => { socket = await connectNotificationSocket(() => { if (alive) loadUnread(); }); })();
+    return () => { alive = false; };
   }, [loadUnread]));
 
   return <View style={{ marginBottom: 12 }}>{showBack ? <BackButton /> : null}

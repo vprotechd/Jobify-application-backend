@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import User from "../models/User.js";
+import { uploadFileToCloudinary, deleteCloudinaryAsset, signedCloudinaryUrl, isCloudinaryConfigured } from "../utils/cloudinary.js";
 
 /*
 |--------------------------------------------------------------------------
@@ -338,19 +339,20 @@ export const updateMyProfile = async (
     |--------------------------------------------------------------------------
     */
 
-    const profileImage =
-      req.files?.profileImage?.[0];
-
+    const profileImage = req.files?.profileImage?.[0];
     if (profileImage) {
-      const oldImage =
-        user.profileImage;
-
-      user.profileImage =
-        profileImage.filename;
-
-      // Delete previous image
-      if (oldImage) {
-        deleteOldFile(oldImage);
+      const oldImage = user.profileImage;
+      const oldPublicId = user.profileImagePublicId;
+      if (isCloudinaryConfigured()) {
+        const uploaded = await uploadFileToCloudinary(profileImage, { folder: "jobify/profile-images", resourceType: "image" });
+        user.profileImage = uploaded.secure_url;
+        user.profileImagePublicId = uploaded.public_id;
+        if (oldPublicId) await deleteCloudinaryAsset(oldPublicId, "image", "upload");
+        else if (oldImage) deleteOldFile(oldImage);
+      } else {
+        user.profileImage = profileImage.filename;
+        user.profileImagePublicId = "";
+        if (oldImage) deleteOldFile(oldImage);
       }
     }
 
@@ -364,19 +366,20 @@ export const updateMyProfile = async (
     |--------------------------------------------------------------------------
     */
 
-    const resume =
-      req.files?.resume?.[0];
-
+    const resume = req.files?.resume?.[0];
     if (resume) {
-      const oldResume =
-        user.resume;
-
-      user.resume =
-        resume.filename;
-
-      // Delete previous resume
-      if (oldResume) {
-        deleteOldFile(oldResume);
+      const oldResume = user.resume;
+      const oldPublicId = user.resumePublicId;
+      if (isCloudinaryConfigured()) {
+        const uploaded = await uploadFileToCloudinary(resume, { folder: "jobify/resumes", resourceType: "raw", type: "upload" });
+        user.resume = uploaded.secure_url;
+        user.resumePublicId = uploaded.public_id;
+        if (oldPublicId) await deleteCloudinaryAsset(oldPublicId, "raw", "upload");
+        else if (oldResume) deleteOldFile(oldResume);
+      } else {
+        user.resume = resume.filename;
+        user.resumePublicId = "";
+        if (oldResume) deleteOldFile(oldResume);
       }
     }
 
@@ -496,8 +499,18 @@ export const updateRecruiterProfile = async (req, res) => {
     const profileImage = req.files?.profileImage?.[0];
     if (profileImage) {
       const oldImage = user.profileImage;
-      user.profileImage = profileImage.filename;
-      if (oldImage) deleteOldFile(oldImage);
+      const oldPublicId = user.profileImagePublicId;
+      if (isCloudinaryConfigured()) {
+        const uploaded = await uploadFileToCloudinary(profileImage, { folder: "jobify/recruiter-profiles", resourceType: "image" });
+        user.profileImage = uploaded.secure_url;
+        user.profileImagePublicId = uploaded.public_id;
+        if (oldPublicId) await deleteCloudinaryAsset(oldPublicId, "image", "upload");
+        else if (oldImage) deleteOldFile(oldImage);
+      } else {
+        user.profileImage = profileImage.filename;
+        user.profileImagePublicId = "";
+        if (oldImage) deleteOldFile(oldImage);
+      }
     }
 
     await user.save();

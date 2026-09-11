@@ -1,6 +1,9 @@
+import { Platform } from "react-native";
+
 export const colors={
-  primary:"#2563eb",primaryDark:"#1d4ed8",bg:"#f8fafc",card:"#ffffff",
-  text:"#0f172a",muted:"#64748b",border:"#e2e8f0",success:"#16a34a",
-  danger:"#dc2626",warning:"#d97706",purple:"#7c3aed"
+  primary:"#1f5eff",primaryDark:"#1746c7",bg:"#eef3f8",card:"#ffffff",
+  text:"#0b1736",muted:"#64748b",border:"#d9e2ec",success:"#15803d",
+  danger:"#dc2626",warning:"#c46a00",purple:"#6d4aff",
+  surface:"#f7f9fc",navy:"#0b1736"
 };
-export const shadow={shadowColor:"#000",shadowOpacity:.07,shadowRadius:10,shadowOffset:{width:0,height:4},elevation:3};
+export const shadow=Platform.select({web:{boxShadow:"0px 5px 14px rgba(11, 23, 54, 0.07)"},default:{shadowColor:"#0b1736",shadowOpacity:.07,shadowRadius:14,shadowOffset:{width:0,height:5},elevation:3}});

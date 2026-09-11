@@ -1,4 +1,5 @@
 import fs from "fs";
+import axios from "axios";
 import path from "path";
 import User from "../models/User.js";
 import CvAccess from "../models/CvAccess.js";
@@ -26,6 +27,13 @@ export const servePrivateResume = async (req, res) => {
     const isAdmin = requester?.role === "admin";
     const unlocked = requester?.role === "recruiter" ? await CvAccess.exists({ recruiter: requester._id, candidate: candidate._id }) : false;
     if (!isOwner && !isAdmin && !unlocked) return res.status(403).json({ success: false, message: "You are not authorized to access this resume." });
+    if (/^https?:\/\//i.test(String(candidate.resume))) {
+      const parsed = new URL(String(candidate.resume));
+      if (!/(^|\.)res\.cloudinary\.com$/i.test(parsed.hostname)) return res.status(400).json({ success: false, message: "Invalid resume storage URL." });
+      const remote = await axios.get(String(candidate.resume), { responseType: "stream", timeout: 30000 });
+      res.setHeader("Content-Type", remote.headers["content-type"] || "application/octet-stream");
+      return remote.data.pipe(res);
+    }
     const full = filePath(filename);
     if (!fs.existsSync(full)) return res.status(404).json({ success: false, message: "Resume file is no longer available." });
     return res.sendFile(full);

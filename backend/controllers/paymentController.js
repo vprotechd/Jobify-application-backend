@@ -86,24 +86,28 @@ export const verifyRazorpayPayment = async (req, res) => {
     const payment = await Payment.findOne({ razorpayOrderId: orderId, recruiter: req.user._id });
     if (!payment) return res.status(404).json({ success: false, message: "Payment order not found." });
 
-    if (payment.status !== "paid") {
-      payment.status = "paid";
-      payment.razorpayPaymentId = paymentId;
-      payment.razorpaySignature = signature;
-      payment.paidAt = new Date();
-      await payment.save();
-      await User.findByIdAndUpdate(req.user._id, { $inc: { resumeCredits: payment.credits } });
+    // Atomically transition created -> paid. This prevents two concurrent
+    // verification requests from crediting the recruiter twice.
+    const claimed = await Payment.findOneAndUpdate(
+      { _id: payment._id, status: "created" },
+      { $set: { status: "paid", razorpayPaymentId: paymentId, razorpaySignature: signature, paidAt: new Date() } },
+      { new: true }
+    );
+
+    if (claimed) {
+      await User.findByIdAndUpdate(req.user._id, { $inc: { resumeCredits: claimed.credits } });
       await createNotification({
         recipient: req.user._id,
         type: "payment",
         title: "Payment successful",
-        message: `${payment.credits} CV credits have been added to your Jobify account.`,
+        message: `${claimed.credits} CV credits have been added to your Jobify account.`,
         link: "CvPackages",
       });
     }
 
+    const finalPayment = claimed || await Payment.findById(payment._id);
     const recruiter = await User.findById(req.user._id).select("resumeCredits").lean();
-    return res.json({ success: true, message: "Payment verified and CV credits added successfully.", payment, resumeCredits: recruiter?.resumeCredits || 0 });
+    return res.json({ success: true, message: claimed ? "Payment verified and CV credits added successfully." : "Payment was already verified.", payment: finalPayment, resumeCredits: recruiter?.resumeCredits || 0 });
   } catch (error) {
     console.error("Razorpay verification error:", error);
     return res.status(500).json({ success: false, message: "Unable to verify payment." });

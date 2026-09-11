@@ -2,6 +2,7 @@ import Job from "../models/Job.js";
 import Application from "../models/Application.js";
 import User from "../models/User.js";
 import { getCvAccessState } from "../services/cvAccessService.js";
+import { uploadFileToCloudinary, deleteCloudinaryAsset, isCloudinaryConfigured } from "../utils/cloudinary.js";
 
 const publicFileUrl = (req, filename) => {
   if (!filename) return "";
@@ -247,7 +248,17 @@ export const updateRecruiterProfile = async (req, res) => {
 
     const profileImage = req.files?.profileImage?.[0];
     if (profileImage) {
-      recruiter.profileImage = profileImage.filename;
+      const oldImage = recruiter.profileImage;
+      const oldPublicId = recruiter.profileImagePublicId;
+      if (isCloudinaryConfigured()) {
+        const uploaded = await uploadFileToCloudinary(profileImage, { folder: "jobify/recruiter-profiles", resourceType: "image" });
+        recruiter.profileImage = uploaded.secure_url;
+        recruiter.profileImagePublicId = uploaded.public_id;
+        if (oldPublicId) await deleteCloudinaryAsset(oldPublicId, "image", "upload");
+      } else {
+        recruiter.profileImage = profileImage.filename;
+        recruiter.profileImagePublicId = "";
+      }
     }
 
     await recruiter.save();

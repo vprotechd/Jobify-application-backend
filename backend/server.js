@@ -1,4 +1,8 @@
 import express from "express";
+import http from "http";
+import { Server as SocketIOServer } from "socket.io";
+import jwt from "jsonwebtoken";
+import { setNotificationSocket } from "./utils/createNotification.js";
 import cors from "cors";
 import dotenv from "dotenv";
 
@@ -23,6 +27,25 @@ import notificationRoutes from "./routes/notificationRoutes.js";
 dotenv.config();
 
 const app = express();
+app.set("trust proxy", 1);
+const httpServer = http.createServer(app);
+const io = new SocketIOServer(httpServer, { cors: { origin: true, credentials: true }, transports: ["websocket", "polling"] });
+
+io.use((socket, next) => {
+  try {
+    const token = socket.handshake.auth?.token;
+    if (!token) return next(new Error("Authentication required"));
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    socket.userId = decoded.id || decoded._id || decoded.userId;
+    if (!socket.userId) return next(new Error("Invalid authentication token"));
+    next();
+  } catch { next(new Error("Invalid authentication token")); }
+});
+io.on("connection", (socket) => {
+  socket.join(`user:${String(socket.userId)}`);
+  socket.emit("notification:connected", { ok: true });
+});
+setNotificationSocket(io);
 
 // ============================================================
 // ENVIRONMENT
@@ -260,7 +283,7 @@ async function startServer() {
     }
 
     // Start Express
-    app.listen(PORT, "0.0.0.0", () => {
+    httpServer.listen(PORT, "0.0.0.0", () => {
       console.log("========================================");
       console.log(`Jobify API running on port ${PORT}`);
       console.log("Health: /health");

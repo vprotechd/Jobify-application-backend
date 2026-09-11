@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import api, { apiError } from "../services/api";
 import { Header, Loader, styles } from "../components/common";
 import { colors } from "../theme/theme";
+import { connectNotificationSocket } from "../services/socket";
 
 const iconFor = (type) => ({
   application: "document-text-outline",
@@ -30,7 +31,18 @@ export default function Notifications({ navigation }) {
       setLoading(false); setRefreshing(false);
     }
   }, []);
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  useFocusEffect(useCallback(() => {
+    load();
+    let active = true;
+    (async () => {
+      await connectNotificationSocket((item) => {
+        if (!active || !item) return;
+        setItems(prev => [item, ...prev.filter(x => x._id !== item._id)]);
+        if (!item.read) setUnread(prev => prev + 1);
+      });
+    })();
+    return () => { active = false; };
+  }, [load]));
 
   const markRead = async (item) => {
     try {

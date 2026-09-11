@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import axios from "axios";
 import fs from "fs";
 import path from "path";
 import Application from "../models/Application.js";
@@ -522,8 +523,12 @@ export const downloadCandidateResume = async (req, res) => {
     let filename = String(candidate.resume).trim();
     if (/^https?:\/\//i.test(filename)) {
       const parsed = new URL(filename);
-      if (parsed.origin !== `${req.protocol}://${req.get("host")}`) return res.status(400).json({ success: false, message: "External resume URLs cannot be downloaded through Jobify." });
-      filename = parsed.pathname;
+      if (!/(^|\.)res\.cloudinary\.com$/i.test(parsed.hostname)) return res.status(400).json({ success: false, message: "External resume URLs cannot be downloaded through Jobify." });
+      const remote = await axios.get(filename, { responseType: "stream", timeout: 30000 });
+      const safeName = String(candidate.name || "candidate").replace(/[^a-zA-Z0-9_-]+/g, "-") || "candidate";
+      res.setHeader("Content-Type", remote.headers["content-type"] || "application/octet-stream");
+      res.setHeader("Content-Disposition", `attachment; filename="${safeName}-resume.pdf"`);
+      return remote.data.pipe(res);
     }
     filename = path.basename(filename.replace(/^\/+/, "").replace(/^uploads[\\/]/i, ""));
     const filePath = path.join(process.cwd(), "uploads", filename);
