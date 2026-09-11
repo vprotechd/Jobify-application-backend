@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import {
   Alert,
   Image,
+  Platform,
   ScrollView,
   Text,
   TouchableOpacity,
@@ -27,10 +28,15 @@ export default function CandidateProfile() {
   const [p, setP] = useState({});
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [imageFailed, setImageFailed] = useState(false);
 
   useEffect(() => {
     loadProfile();
   }, []);
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [p.profileImage]);
 
   const loadProfile = async () => {
     try {
@@ -119,7 +125,14 @@ export default function CandidateProfile() {
 
       // Profile image
       if (p._image) {
-        fd.append("profileImage", p._image);
+        let imageUpload = p._image;
+        if (Platform.OS === "web" && imageUpload.uri) {
+          const imageBlob = await fetch(imageUpload.uri).then((response) => response.blob());
+          imageUpload = new File([imageBlob], imageUpload.name || "profile.jpg", {
+            type: imageUpload.type || imageBlob.type || "image/jpeg",
+          });
+        }
+        fd.append("profileImage", imageUpload);
       }
 
       // Resume
@@ -280,7 +293,7 @@ export default function CandidateProfile() {
             justifyContent: "center",
           }}
         >
-          {imageUrl ? (
+          {imageUrl && !imageFailed ? (
             <Image
               source={{ uri: imageUrl }}
               style={{
@@ -288,12 +301,7 @@ export default function CandidateProfile() {
                 height: "100%",
               }}
               resizeMode="cover"
-              onError={(error) => {
-                console.log(
-                  "Profile image error:",
-                  error.nativeEvent
-                );
-              }}
+              onError={() => setImageFailed(true)}
             />
           ) : (
             <Text
