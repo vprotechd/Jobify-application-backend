@@ -1,13 +1,24 @@
 {
-  "expo":{
-    "name":"Jobify",
-    "slug":"jobify-mobile",
-    "version":"1.0.0",
-    "orientation":"portrait",
-    "userInterfaceStyle":"light",
-    "scheme":"jobify",
-    "assetBundlePatterns":["**/*"],
-    "android":{"package":"com.jobify.mobile"},
-    "ios":{"bundleIdentifier":"com.jobify.mobile"}
+  "expo": {
+    "name": "Jobify",
+    "slug": "jobify-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "scheme": "jobify",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "android": {
+      "package": "com.jobify.mobile"
+    },
+    "ios": {
+      "bundleIdentifier": "com.jobify.mobile"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "dae03075-8dbf-418c-b6af-4e7d01d28d12"
+      }
+    }
   }
 }
