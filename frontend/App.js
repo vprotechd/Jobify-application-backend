@@ -1,7 +1,7 @@
 import "react-native-gesture-handler";
 import React, { useEffect, useState } from "react";
 import { Platform, Text, View } from "react-native";
-import { NavigationContainer } from "@react-navigation/native";
+import { NavigationContainer, DefaultTheme } from "@react-navigation/native";
 import { AuthProvider } from "./src/context/AuthContext";
 import RootNavigator from "./src/navigation/RootNavigator";
 import { setToastHandler } from "./src/services/toast";
@@ -29,5 +29,18 @@ function ToastHost() {
 }
 
 export default function App(){
-  return <AuthProvider><NavigationContainer><RootNavigator/></NavigationContainer><ToastHost /></AuthProvider>;
+  const navigationTheme = {
+    ...DefaultTheme,
+    dark: false,
+    colors: {
+      ...DefaultTheme.colors,
+      primary: colors.primary,
+      background: colors.bg,
+      card: colors.card,
+      text: colors.text,
+      border: colors.border,
+      notification: colors.danger,
+    },
+  };
+  return <AuthProvider><NavigationContainer theme={navigationTheme}><RootNavigator/></NavigationContainer><ToastHost /></AuthProvider>;
 }

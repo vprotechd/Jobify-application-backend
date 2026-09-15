@@ -10,7 +10,15 @@
       "**/*"
     ],
     "android": {
-      "package": "com.jobify.mobile"
+      "package": "com.jobify.mobile",
+      "statusBar": {
+        "barStyle": "dark-content",
+        "backgroundColor": "#eef3f8"
+      },
+      "navigationBar": {
+        "barStyle": "dark-content",
+        "backgroundColor": "#ffffff"
+      }
     },
     "ios": {
       "bundleIdentifier": "com.jobify.mobile"
