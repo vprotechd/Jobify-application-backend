@@ -83,7 +83,12 @@ const upload = {
           if (filename) {
             if (content.length > MAX_FILE_SIZE) return res.status(413).json({ success: false, message: `${name} must be smaller than 5 MB.` });
             if (name === "profileImage" && !IMAGE_TYPES.has(type)) return res.status(400).json({ success: false, message: "Profile picture must be JPG, JPEG, PNG or WEBP." });
-            if (name === "resume" && !RESUME_TYPES.has(type)) return res.status(400).json({ success: false, message: "Resume must be PDF, DOC or DOCX." });
+            if (name === "resume") {
+              const ext = path.extname(filename || "").toLowerCase();
+              const extensionAllowed = [".pdf", ".doc", ".docx"].includes(ext);
+              const mimeAllowed = !type || RESUME_TYPES.has(type) || type === "application/octet-stream";
+              if (!mimeAllowed || !extensionAllowed) return res.status(400).json({ success: false, message: "Resume must be PDF, DOC or DOCX." });
+            }
             const stored = safeFilename(filename);
             const destination = path.join(uploadDir, stored);
             fs.writeFileSync(destination, content);

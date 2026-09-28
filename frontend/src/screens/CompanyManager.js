@@ -1,3 +1,4 @@
+import { useTheme } from "../context/ThemeContext";
 import React,{useCallback,useState}from"react";
 import{Alert,Image,ScrollView,Text,TouchableOpacity,View}from"react-native";
 import{useFocusEffect}from"@react-navigation/native";
@@ -7,7 +8,7 @@ import{Field,Header,Loader,Empty,styles}from"../components/common";
 import{colors}from"../theme/theme";
 
 const blank={name:"",industry:"",location:"",description:"",website:"",employeeCount:"",logo:""};
-export default function CompanyManager(){
+export default function CompanyManager(){const { mode: __themeMode } = useTheme();
  const[c,setC]=useState([]),[loading,setLoading]=useState(true),[show,setShow]=useState(false),[busy,setBusy]=useState(false),[editing,setEditing]=useState(null),[f,setF]=useState(blank),[logoFile,setLogoFile]=useState(null);
  const load=async()=>{try{const r=await api.get("/companies/recruiter/mine");setC(r.data.companies||[])}catch(e){Alert.alert("Companies",apiError(e))}finally{setLoading(false)}};
  useFocusEffect(useCallback(()=>{load()},[]));

@@ -1,11 +1,12 @@
+import { useTheme } from "../context/ThemeContext";
 import React, { useEffect, useRef, useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import api from "../services/api";
-import { BackButton, styles } from "../components/common";
+import { BackButton, styles, ThemeToggle } from "../components/common";
 import { toast } from "../services/toast";
 import { colors } from "../theme/theme";
 
-export default function VerifyOTP({ navigation, route }) {
+export default function VerifyOTP({ navigation, route }) {const { mode: __themeMode } = useTheme();
   const email = String(route.params?.email || "").trim().toLowerCase();
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [busy, setBusy] = useState(false);
@@ -54,14 +55,14 @@ export default function VerifyOTP({ navigation, route }) {
   if (!email) return null;
   return <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === "ios" ? "padding" : undefined}>
     <ScrollView contentContainerStyle={[styles.content, { paddingTop: 42 }]}>
-      <BackButton label="Back to Register" />
+      <View style={{flexDirection:"row",justifyContent:"space-between",alignItems:"center"}}><BackButton label="Back to Register" /><ThemeToggle compact /></View>
       <View style={[styles.card, { padding: 22 }]}>
         <Text style={{ fontSize: 32, fontWeight: "900", color: colors.primary, marginBottom: 10 }}>Jobify</Text>
         <Text style={styles.title}>Verify your email</Text>
         <Text style={styles.subtitle}>Enter the 6-digit verification code sent to your email address.</Text>
         <Text style={{ color: colors.text, fontWeight: "800", marginBottom: 22 }}>{email}</Text>
         <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 22 }}>
-          {otp.map((digit, index) => <TextInput key={index} ref={ref => { refs.current[index] = ref; }} value={digit} onChangeText={v => updateDigit(v, index)} onKeyPress={e => onKeyPress(e, index)} keyboardType="number-pad" maxLength={6 - index} textAlign="center" style={{ width: 45, height: 52, borderWidth: 1, borderColor: digit ? colors.primary : colors.border, borderRadius: 12, backgroundColor: "#fff", fontSize: 20, fontWeight: "800", color: colors.text }} />)}
+          {otp.map((digit, index) => <TextInput key={index} ref={ref => { refs.current[index] = ref; }} value={digit} onChangeText={v => updateDigit(v, index)} onKeyPress={e => onKeyPress(e, index)} keyboardType="number-pad" maxLength={6 - index} textAlign="center" style={{ width: 45, height: 52, borderWidth: 1, borderColor: digit ? colors.primary : colors.border, borderRadius: 12, backgroundColor:colors.card, fontSize: 20, fontWeight: "800", color: colors.text }} />)}
         </View>
         <TouchableOpacity style={styles.button} onPress={verify} disabled={busy}><Text style={styles.buttonText}>{busy ? "Verifying..." : "Verify Email"}</Text></TouchableOpacity>
         <Text style={{ textAlign: "center", color: colors.muted, marginTop: 8 }}>Didn't receive the code?</Text>

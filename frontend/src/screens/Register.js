@@ -1,3 +1,4 @@
+import { useTheme } from "../context/ThemeContext";
 import React, { useState } from "react";
 import {
   KeyboardAvoidingView,
@@ -8,7 +9,7 @@ import {
   View,
 } from "react-native";
 import api from "../services/api";
-import { styles, Field, BackButton } from "../components/common";
+import { styles, Field, BackButton, ThemeToggle } from "../components/common";
 import { colors } from "../theme/theme";
 import { toast } from "../services/toast";
 
@@ -17,7 +18,7 @@ const roles = [
   { value: "recruiter", title: "Recruiter", subtitle: "Hire talent", icon: "💼" },
 ];
 
-export default function Register({ navigation }) {
+export default function Register({ navigation }) {const { mode: __themeMode } = useTheme();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -74,7 +75,7 @@ export default function Register({ navigation }) {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <ScrollView contentContainerStyle={[styles.content, { paddingTop: 42 }]} keyboardShouldPersistTaps="handled">
-        <BackButton label="Back to Jobify" />
+        <View style={{flexDirection:"row",justifyContent:"space-between",alignItems:"center"}}><BackButton label="Back to Jobify" /><ThemeToggle compact /></View>
 
         <Text style={{ fontSize: 32, fontWeight: "900", color: colors.primary }}>Jobify</Text>
         <Text style={styles.title}>Create your account</Text>

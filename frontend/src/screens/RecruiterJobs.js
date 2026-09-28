@@ -1,3 +1,4 @@
+import { useTheme } from "../context/ThemeContext";
 import React, { useCallback, useState } from "react";
 import { Alert, RefreshControl, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
@@ -5,7 +6,7 @@ import api, { apiError } from "../services/api";
 import { Empty, Header, Loader, styles } from "../components/common";
 import { colors } from "../theme/theme";
 
-export default function RecruiterJobs({ navigation }) {
+export default function RecruiterJobs({ navigation }) {const { mode: __themeMode } = useTheme();
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);

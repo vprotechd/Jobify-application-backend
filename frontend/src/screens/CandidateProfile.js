@@ -1,3 +1,4 @@
+import { useTheme } from "../context/ThemeContext";
 import React, { useEffect, useState } from "react";
 import {
   Alert,
@@ -22,7 +23,7 @@ import {
 } from "../components/common";
 import { colors } from "../theme/theme";
 
-export default function CandidateProfile() {
+export default function CandidateProfile() {const { mode: __themeMode } = useTheme();
   const { logout } = useAuth();
 
   const [p, setP] = useState({});
@@ -135,9 +136,18 @@ export default function CandidateProfile() {
         fd.append("profileImage", imageUpload);
       }
 
-      // Resume
+      // Resume - Expo returns a URI descriptor on native and a Blob-backed
+      // asset on web. Convert the web URI into a real File before appending
+      // it so the multipart request contains a filename and MIME type.
       if (p._resume) {
-        fd.append("resume", p._resume);
+        let resumeUpload = p._resume;
+        if (Platform.OS === "web" && resumeUpload.uri) {
+          const resumeBlob = await fetch(resumeUpload.uri).then((response) => response.blob());
+          resumeUpload = new File([resumeBlob], resumeUpload.name || "resume.pdf", {
+            type: resumeUpload.type || resumeBlob.type || "application/pdf",
+          });
+        }
+        fd.append("resume", resumeUpload);
       }
 
       const response = await api.put("/profile/me", fd);
@@ -286,7 +296,7 @@ export default function CandidateProfile() {
             height: 120,
             borderRadius: 60,
             overflow: "hidden",
-            backgroundColor: "#e5e7eb",
+            backgroundColor:colors.surface,
             borderWidth: 3,
             borderColor: colors.primary || "#2563eb",
             alignItems: "center",

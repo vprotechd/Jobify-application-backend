@@ -23,6 +23,7 @@ import fileRoutes from "./routes/fileRoutes.js";
 import favoriteRoutes from "./routes/favoriteRoutes.js";
 import contactRoutes from "./routes/contactRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
+import messageRoutes from "./routes/messageRoutes.js";
 
 dotenv.config();
 
@@ -46,6 +47,7 @@ io.on("connection", (socket) => {
   socket.emit("notification:connected", { ok: true });
 });
 setNotificationSocket(io);
+globalThis.__jobifyIO = io;
 
 // ============================================================
 // ENVIRONMENT
@@ -216,6 +218,7 @@ app.use("/api/reports", reportRoutes);
 app.use("/api/favorites", favoriteRoutes);
 app.use("/api/contact", contactRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/messages", messageRoutes);
 
 // ============================================================
 // ERROR HANDLER

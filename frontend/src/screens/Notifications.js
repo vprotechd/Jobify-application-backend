@@ -1,3 +1,4 @@
+import { useTheme } from "../context/ThemeContext";
 import React, { useCallback, useState } from "react";
 import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
@@ -14,7 +15,7 @@ const iconFor = (type) => ({
   job: "briefcase-outline",
 }[type] || "notifications-outline");
 
-export default function Notifications({ navigation }) {
+export default function Notifications({ navigation }) {const { mode: __themeMode } = useTheme();
   const [items, setItems] = useState([]);
   const [unread, setUnread] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -77,7 +78,7 @@ export default function Notifications({ navigation }) {
       items.map(item => <TouchableOpacity key={item._id} onPress={() => markRead(item)}
         style={[styles.card,{borderColor:item.read?colors.border:colors.primary,backgroundColor:item.read?"#fff":"#eff6ff"}]}>
         <View style={{flexDirection:"row",gap:12}}>
-          <View style={{width:42,height:42,borderRadius:12,backgroundColor:"#fff",alignItems:"center",justifyContent:"center"}}>
+          <View style={{width:42,height:42,borderRadius:12,backgroundColor:colors.card,alignItems:"center",justifyContent:"center"}}>
             <Ionicons name={iconFor(item.type)} size={21} color={colors.primary}/>
           </View>
           <View style={{flex:1}}>

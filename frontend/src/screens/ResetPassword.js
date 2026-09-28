@@ -1,10 +1,11 @@
+import { useTheme } from "../context/ThemeContext";
 import React, { useState } from "react";
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import api from "../services/api";
 import { Field, Header, styles } from "../components/common";
 import { colors } from "../theme/theme";
 
-export default function ResetPassword({ navigation, route }) {
+export default function ResetPassword({ navigation, route }) {const { mode: __themeMode } = useTheme();
   const token = String(route.params?.token || "").trim();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");

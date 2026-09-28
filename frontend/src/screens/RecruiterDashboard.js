@@ -1,3 +1,4 @@
+import { useTheme } from "../context/ThemeContext";
 import React,{useEffect,useState}from"react";
 import{ScrollView,Text,View,TouchableOpacity}from"react-native";
 import api from"../services/api";
@@ -10,7 +11,7 @@ const Action=({title,text,onPress,primary=false})=><TouchableOpacity onPress={on
   <Text style={{color:colors.muted,fontSize:13,lineHeight:19,marginTop:4}}>{text}</Text>
 </TouchableOpacity>;
 
-export default function RecruiterDashboard({navigation}) {
+export default function RecruiterDashboard({navigation}) {const { mode: __themeMode } = useTheme();
   const{user,logout}=useAuth();
   const[d,setD]=useState(null);
   const[loading,setLoading]=useState(true);
@@ -24,12 +25,12 @@ export default function RecruiterDashboard({navigation}) {
       {[["Active jobs",s.activeJobs],["Applications",s.totalApplications||s.applications],["Interviews",s.interviews],["Hired",s.hired]].map(([x,n])=>
         <View style={[styles.card,{width:"48%"}]} key={x}><Text style={{fontSize:28,fontWeight:"900",color:colors.primary}}>{n||0}</Text><Text style={styles.muted}>{x}</Text></View>)}
     </View>
-    <View style={[styles.card,{backgroundColor:"#eff6ff",borderColor:"#bfdbfe",marginTop:2}]}>
+    <View style={[styles.card,{backgroundColor:colors.softPrimary,borderColor:"#bfdbfe",marginTop:2}]}>
       <Text style={{fontSize:16,fontWeight:"900",color:colors.text}}>Candidate Resume Downloads</Text>
       <Text style={{color:colors.muted,lineHeight:20,marginTop:5}}>You receive {access.freeDownloadsTotal||10} free candidate CV unlocks every month. After those are used, paid credits are used.</Text>
       <View style={{flexDirection:"row",gap:10,marginTop:12}}>
-        <View style={{backgroundColor:"#fff",padding:10,borderRadius:12,flex:1}}><Text style={{fontSize:11,color:colors.muted}}>Free remaining</Text><Text style={{fontSize:20,fontWeight:"900",color:colors.primary}}>{access.freeDownloadsRemaining??10}/{access.freeDownloadsTotal||10}</Text></View>
-        <View style={{backgroundColor:"#fff",padding:10,borderRadius:12,flex:1}}><Text style={{fontSize:11,color:colors.muted}}>Paid credits</Text><Text style={{fontSize:20,fontWeight:"900"}}>{access.credits??0}</Text></View>
+        <View style={{backgroundColor:colors.card,padding:10,borderRadius:12,flex:1}}><Text style={{fontSize:11,color:colors.muted}}>Free remaining</Text><Text style={{fontSize:20,fontWeight:"900",color:colors.primary}}>{access.freeDownloadsRemaining??10}/{access.freeDownloadsTotal||10}</Text></View>
+        <View style={{backgroundColor:colors.card,padding:10,borderRadius:12,flex:1}}><Text style={{fontSize:11,color:colors.muted}}>Paid credits</Text><Text style={{fontSize:20,fontWeight:"900"}}>{access.credits??0}</Text></View>
       </View>
     </View>
     <Text style={{fontSize:19,fontWeight:"900",color:colors.text,marginTop:8,marginBottom:5}}>Quick Actions</Text>

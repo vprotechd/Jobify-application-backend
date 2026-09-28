@@ -1,10 +1,11 @@
+import { useTheme } from "../context/ThemeContext";
 import React, { useEffect, useState } from "react";
 import { Alert, Platform, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import api, { apiError } from "../services/api";
 import { Header, Loader, styles } from "../components/common";
 import { colors } from "../theme/theme";
 
-export default function ViewApplication({ route, navigation }) {
+export default function ViewApplication({ route, navigation }) {const { mode: __themeMode } = useTheme();
   const [application, setApplication] = useState(route.params?.application || null);
   const [loading, setLoading] = useState(!application);
   const [downloading, setDownloading] = useState(false);

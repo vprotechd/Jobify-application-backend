@@ -34,3 +34,13 @@ export function onNotification(listener) {
   socket?.on("notification:new", listener);
   return () => socket?.off("notification:new", listener);
 }
+
+export function onMessage(listener) {
+  socket?.on("message:new", listener);
+  return () => socket?.off("message:new", listener);
+}
+
+export function onSentMessage(listener) {
+  socket?.on("message:sent", listener);
+  return () => socket?.off("message:sent", listener);
+}

@@ -1,3 +1,4 @@
+import { useTheme } from "../context/ThemeContext";
 import React, { useCallback, useState } from "react";
 import { Alert, Platform, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { WebView } from "react-native-webview";
@@ -22,7 +23,7 @@ const loadRazorpayScript = () => new Promise((resolve, reject) => {
   document.body.appendChild(script);
 });
 
-export default function CvPackages() {
+export default function CvPackages() {const { mode: __themeMode } = useTheme();
   const { user } = useAuth();
   const [packages, setPackages] = useState([]);
   const [access, setAccess] = useState(null);
@@ -106,7 +107,7 @@ export default function CvPackages() {
 
   if (checkout) {
     return (
-      <View style={{ flex: 1, backgroundColor: "#fff" }}>
+      <View style={{ flex: 1, backgroundColor:colors.card }}>
         <TouchableOpacity style={{ padding: 16 }} onPress={() => setCheckout(null)}>
           <Text style={{ color: colors.muted, fontWeight: "700" }}>Cancel checkout</Text>
         </TouchableOpacity>

@@ -1,3 +1,4 @@
+import { useTheme } from "../context/ThemeContext";
 import React, { useCallback, useState } from "react";
 import { Alert, RefreshControl, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
@@ -16,7 +17,7 @@ const configs = {
 
 const statusColors = { active: colors.success, open: colors.primary, pending: "#b45309", reviewing: "#b45309", accepted: colors.success, rejected: colors.danger, closed: colors.muted, draft: colors.muted };
 
-export default function AdminResource({ resource = "users", title }) {
+export default function AdminResource({ resource = "users", title }) {const { mode: __themeMode } = useTheme();
   const navigation = useNavigation();
   const cfg = configs[resource] || configs.users;
   const [data, setData] = useState([]), [loading, setLoading] = useState(true), [refreshing, setRefreshing] = useState(false);
@@ -58,11 +59,11 @@ export default function AdminResource({ resource = "users", title }) {
     <Text style={styles.itemTitle}>{x.title || "Untitled job"}</Text><Text style={styles.muted}>{x.company?.name || x.company || "Company not specified"}</Text>
     <View style={styles.metaRow}><Text style={styles.meta}>{x.location || "Location not set"}</Text><Text style={[styles.meta, { color: statusColors[x.status] || colors.text }]}>{x.status || "draft"}</Text></View>
     <Text style={styles.meta}>Recruiter: {x.recruiter?.name || x.recruiter?.email || "—"}</Text>
-    <View style={styles.actionRow}>{["draft", "active", "closed"].map(s => <TouchableOpacity key={s} style={[styles.smallButton, x.status === s && { borderColor: colors.primary, backgroundColor: "#eff6ff" }]} onPress={() => update(x._id, "/admin/jobs", { status: s })}><Text style={styles.smallButtonText}>{s}</Text></TouchableOpacity>)}<TouchableOpacity style={[styles.smallButton, { borderColor: "#fecaca" }]} onPress={() => confirmDeleteJob(x)}><Text style={{ color: colors.danger, fontWeight: "800" }}>Delete</Text></TouchableOpacity></View>
+    <View style={styles.actionRow}>{["draft", "active", "closed"].map(s => <TouchableOpacity key={s} style={[styles.smallButton, x.status === s && { borderColor: colors.primary, backgroundColor:colors.softPrimary }]} onPress={() => update(x._id, "/admin/jobs", { status: s })}><Text style={styles.smallButtonText}>{s}</Text></TouchableOpacity>)}<TouchableOpacity style={[styles.smallButton, { borderColor: "#fecaca" }]} onPress={() => confirmDeleteJob(x)}><Text style={{ color: colors.danger, fontWeight: "800" }}>Delete</Text></TouchableOpacity></View>
   </>;
   const renderApplication = x => <>
     <Text style={styles.itemTitle}>{x.job?.title || "Application"}</Text><Text style={styles.muted}>{x.candidate?.name || x.candidate?.email || "Candidate"}</Text><Text style={styles.meta}>Recruiter: {x.recruiter?.name || "—"}</Text>
-    <View style={styles.actionRow}>{["pending", "reviewing", "shortlisted", "interview", "accepted", "rejected"].map(s => <TouchableOpacity key={s} style={[styles.smallButton, x.status === s && { backgroundColor: "#eff6ff", borderColor: colors.primary }]} onPress={() => update(x._id, "/admin/applications", { status: s })}><Text style={styles.smallButtonText}>{s}</Text></TouchableOpacity>)}</View>
+    <View style={styles.actionRow}>{["pending", "reviewing", "shortlisted", "interview", "accepted", "rejected"].map(s => <TouchableOpacity key={s} style={[styles.smallButton, x.status === s && { backgroundColor:colors.softPrimary, borderColor: colors.primary }]} onPress={() => update(x._id, "/admin/applications", { status: s })}><Text style={styles.smallButtonText}>{s}</Text></TouchableOpacity>)}</View>
   </>;
   const renderCompany = x => <>
     <Text style={styles.itemTitle}>{x.name || "Company"}</Text><Text style={styles.muted}>{x.industry || x.location || "Company profile"}</Text><Text style={styles.meta}>Recruiter: {x.recruiter?.name || x.recruiter?.email || "—"}</Text>

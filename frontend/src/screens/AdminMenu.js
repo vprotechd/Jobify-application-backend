@@ -1,3 +1,4 @@
+import { useTheme } from "../context/ThemeContext";
 import React from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useAuth } from "../context/AuthContext";
@@ -11,10 +12,10 @@ const groups = [
   { title: "Platform", items: [["Analytics", "analytics"], ["Reports & moderation", "reports"], ["Features", "features"], ["Settings", "settings"], ["Contact enquiries", "enquiries"]] },
 ];
 
-export default function AdminMenu({ navigation }) {
+export default function AdminMenu({ navigation }) {const { mode: __themeMode } = useTheme();
   const { logout } = useAuth();
   return <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-    <Header eyebrow="Jobify Admin" title="Management" subtitle="Complete administration tools for the Jobify platform." />
+    <Header eyebrow="Jobify Admin" title="Admin Management" subtitle="Manage the same Jobify platform areas available on the website." />
     {groups.map(group => <View key={group.title} style={styles.card}>
       <Text style={{ fontSize: 17, fontWeight: "900", color: colors.text, marginBottom: 10 }}>{group.title}</Text>
       {group.items.map(([label, resource]) => <TouchableOpacity key={resource} style={styles.outline} onPress={() => resource === "dashboard" ? navigation.navigate("Dashboard") : resource === "notifications" ? navigation.navigate("Notifications") : navigation.navigate("AdminTool", { resource })}>

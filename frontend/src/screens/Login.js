@@ -1,3 +1,4 @@
+import { useTheme } from "../context/ThemeContext";
 import React, { useEffect, useState } from "react";
 import {
   KeyboardAvoidingView,
@@ -8,13 +9,13 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { BackButton } from "../components/common";
+import { BackButton, ThemeToggle } from "../components/common";
 import { toast } from "../services/toast";
 import { styles, Field } from "../components/common";
 import { useAuth } from "../context/AuthContext";
 import { colors } from "../theme/theme";
 
-export default function Login({ navigation, route }) {
+export default function Login({ navigation, route }) {const { mode: __themeMode } = useTheme();
   const { login } = useAuth();
   const [email, setEmail] = useState(route.params?.email || "");
   const [password, setPassword] = useState("");
@@ -55,7 +56,7 @@ export default function Login({ navigation, route }) {
   return (
     <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <ScrollView contentContainerStyle={[styles.content, { paddingTop: 55 }]} keyboardShouldPersistTaps="handled">
-        <BackButton label="Back to Jobify" />
+        <View style={{flexDirection:"row",justifyContent:"space-between",alignItems:"center"}}><BackButton label="Back to Jobify" /><ThemeToggle compact /></View>
 
         <View style={[styles.card, { padding: 22 }]}> 
           <Text style={{ fontSize: 32, fontWeight: "900", color: colors.primary }}>Jobify</Text>

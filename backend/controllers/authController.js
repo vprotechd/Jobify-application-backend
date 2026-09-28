@@ -14,23 +14,23 @@ import { createNotification } from "../utils/createNotification.js";
 export const register = async (req, res) => {
   try {
     const { name, email, password, role } = req.body;
+    const cleanName = String(name || "").trim();
+    const normalizedEmail = String(email || "").trim().toLowerCase();
     const safeRole = role === "recruiter" ? "recruiter" : "jobseeker";
 
-    if (!name || !email || !password) {
+    if (!cleanName || !normalizedEmail || !password) {
       return res.status(400).json({
         success: false,
         message: "Name, email and password are required",
       });
     }
 
-    if (password.length < 6) {
+    if (String(password).length < 6) {
       return res.status(400).json({
         success: false,
         message: "Password must be at least 6 characters",
       });
     }
-
-    const normalizedEmail = email.toLowerCase().trim();
 
     let user = await User.findOne({
       email: normalizedEmail,
@@ -54,14 +54,14 @@ export const register = async (req, res) => {
     );
 
     if (user) {
-      user.name = name;
+      user.name = cleanName;
       user.password = password;
       user.role = safeRole;
       user.otp = otp;
       user.otpExpires = otpExpires;
     } else {
       user = new User({
-        name,
+        name: cleanName,
         email: normalizedEmail,
         password,
         role: safeRole,
@@ -80,7 +80,7 @@ export const register = async (req, res) => {
         <div style="font-family: Arial, sans-serif; padding: 30px;">
           <h2>Welcome to Jobify</h2>
 
-          <p>Hello ${name},</p>
+          <p>Hello ${cleanName},</p>
 
           <p>
             Use the following OTP to verify your Jobify account:
@@ -110,9 +110,17 @@ export const register = async (req, res) => {
   } catch (error) {
     console.error("Register error:", error);
 
-    return res.status(500).json({
+    const status =
+      Number(error?.statusCode) >= 400 && Number(error?.statusCode) < 600
+        ? Number(error.statusCode)
+        : 500;
+
+    return res.status(status).json({
       success: false,
-      message: error.message || "Registration failed",
+      message:
+        status === 503
+          ? "Your account could not be completed because the verification email could not be sent. Please try again."
+          : error.message || "Registration failed",
     });
   }
 };
