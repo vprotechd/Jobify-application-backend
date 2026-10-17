@@ -1,4 +1,534 @@
+
 import { useTheme } from "../context/ThemeContext";
-import React,{useState}from"react";import{Image,ScrollView,Text,TextInput,TouchableOpacity,View}from"react-native";import{Ionicons}from"@expo/vector-icons";import{useAuth}from"../context/AuthContext";import{colors}from"../theme/theme";import{styles,ThemeToggle}from"../components/common";
-const popular=["React Developer","Software Engineer","Marketing Manager","Data Analyst","Product Manager"];const categories=["Software Development","Marketing","Finance","Human Resources","Sales","Design","Healthcare","Engineering"];
-export default function Home({navigation}){const { mode: __themeMode } = useTheme();const{user,isAuthenticated,logout}=useAuth();const[k,setK]=useState(""),[loc,setLoc]=useState("");const root=()=>navigation.getParent();const dash=()=>root()?.navigate(user?.role==="admin"?"Admin":user?.role==="recruiter"?"Recruiter":"Candidate");return <ScrollView style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled"><View style={{flexDirection:"row",alignItems:"center",justifyContent:"space-between",marginBottom:24}}><View style={{flexDirection:"row",alignItems:"center"}}><Image source={require("../../assets/jobify.png")} style={{width:40,height:40,borderRadius:10,marginRight:9}}/><Text style={{fontSize:22,fontWeight:"900",color:colors.text}}>Jobify</Text></View><View style={{flexDirection:"row",gap:7,alignItems:"center"}}><ThemeToggle compact />{isAuthenticated?<View style={{flexDirection:"row",gap:7}}><TouchableOpacity style={styles.outline} onPress={dash}><Text style={styles.outlineText}>Dashboard</Text></TouchableOpacity><TouchableOpacity style={[styles.outline,{borderColor:"#fecaca"}]} onPress={logout}><Ionicons name="log-out-outline" size={18} color={colors.danger}/></TouchableOpacity></View>:<View style={{flexDirection:"row",gap:7}}><TouchableOpacity onPress={()=>root()?.navigate("Login")} style={{padding:10}}><Text style={{fontWeight:"800",color:colors.text}}>Login</Text></TouchableOpacity><TouchableOpacity onPress={()=>root()?.navigate("Register")} style={{backgroundColor:colors.primary,borderRadius:10,paddingHorizontal:13,paddingVertical:10}}><Text style={{color:"#fff",fontWeight:"800"}}>Get Started</Text></TouchableOpacity></View>}</View></View><Text style={{fontSize:12,color:colors.primary,fontWeight:"900",letterSpacing:.5}}>✦ FIND OPPORTUNITIES THAT MATCH YOUR POTENTIAL</Text><Text style={{fontSize:37,lineHeight:44,fontWeight:"900",color:colors.text,marginTop:12}}>Find your next <Text style={{color:colors.primary}}>career opportunity</Text></Text><Text style={styles.subtitle}>Discover jobs from leading companies, build your professional profile, and take the next step in your career.</Text>{!isAuthenticated&&<View style={{flexDirection:"row",gap:8}}><TouchableOpacity style={[styles.outline,{flex:1}]} onPress={()=>root()?.navigate("Login")}><Text style={styles.outlineText}>Sign In</Text></TouchableOpacity><TouchableOpacity style={[styles.button,{flex:1}]} onPress={()=>root()?.navigate("Register")}><Text style={styles.buttonText}>Create Account</Text></TouchableOpacity></View>}<View style={[styles.card,{marginTop:10}]}><Text style={styles.label}>Job title, skills or keywords</Text><View style={{flexDirection:"row",alignItems:"center",borderWidth:1,borderColor:colors.border,borderRadius:12,paddingHorizontal:12}}><Ionicons name="search" size={19} color={colors.muted}/><TextInput style={{flex:1,padding:12,color:colors.text}} value={k} onChangeText={setK} placeholder="Search jobs" placeholderTextColor="#94a3b8"/></View><Text style={[styles.label,{marginTop:12}]}>Location</Text><View style={{flexDirection:"row",alignItems:"center",borderWidth:1,borderColor:colors.border,borderRadius:12,paddingHorizontal:12}}><Ionicons name="location-outline" size={19} color={colors.muted}/><TextInput style={{flex:1,padding:12,color:colors.text}} value={loc} onChangeText={setLoc} placeholder="Location" placeholderTextColor="#94a3b8"/></View><TouchableOpacity style={[styles.button,{marginTop:12}]} onPress={()=>navigation.navigate("Jobs",{keyword:k,location:loc})}><Text style={styles.buttonText}>Search Jobs</Text></TouchableOpacity></View><Text style={{fontSize:21,fontWeight:"800",marginVertical:8}}>Popular searches</Text><View style={{flexDirection:"row",flexWrap:"wrap",gap:8}}>{popular.map(x=><TouchableOpacity key={x} style={[styles.chip,{borderWidth:1,borderColor:colors.border,backgroundColor:colors.card}]} onPress={()=>navigation.navigate("Jobs",{keyword:x})}><Text style={{color:colors.text,fontWeight:"700"}}>{x}</Text></TouchableOpacity>)}</View><View style={{flexDirection:"row",justifyContent:"space-between",alignItems:"flex-end",marginTop:24,marginBottom:10}}><View><Text style={{fontSize:21,fontWeight:"800"}}>Popular job categories</Text><Text style={styles.muted}>Explore roles across industries.</Text></View><TouchableOpacity onPress={()=>navigation.navigate("Jobs")}><Text style={{color:colors.primary,fontWeight:"800"}}>View all →</Text></TouchableOpacity></View>{categories.map(x=><TouchableOpacity key={x} style={styles.card} onPress={()=>navigation.navigate("Jobs",{category:x})}><View style={styles.row}><View><Text style={{fontWeight:"800",color:colors.text}}>{x}</Text><Text style={[styles.muted,{marginTop:4}]}>Explore jobs</Text></View><Ionicons name="arrow-forward" color={colors.primary}/></View></TouchableOpacity>)}<View style={[styles.card,{marginTop:6}]}><Text style={{fontSize:21,fontWeight:"800"}}>Everything you need to move your career forward</Text><Text style={[styles.muted,{marginTop:8,lineHeight:22}]}>Build your profile, discover opportunities, track applications and connect with employers.</Text><TouchableOpacity style={[styles.outline,{marginTop:12}]} onPress={()=>root()?.navigate("About")}><Text style={styles.outlineText}>Learn more about Jobify</Text></TouchableOpacity><TouchableOpacity style={styles.outline} onPress={()=>root()?.navigate("Contact")}><Text style={styles.outlineText}>Contact support</Text></TouchableOpacity></View></ScrollView>}
+import React, { useState } from "react";
+import {
+  Image,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useAuth } from "../context/AuthContext";
+import { colors } from "../theme/theme";
+import { styles, ThemeToggle } from "../components/common";
+
+const popular = [
+  "React Developer",
+  "Software Engineer",
+  "Marketing Manager",
+  "Data Analyst",
+  "Product Manager",
+];
+
+const categories = [
+  "Software Development",
+  "Marketing",
+  "Finance",
+  "Human Resources",
+  "Sales",
+  "Design",
+  "Healthcare",
+  "Engineering",
+];
+
+export default function Home({ navigation }) {
+  const { mode: __themeMode } = useTheme();
+  const { user, isAuthenticated, logout } = useAuth();
+
+  const [k, setK] = useState("");
+  const [loc, setLoc] = useState("");
+
+  const root = () => navigation.getParent();
+
+  const dash = () =>
+    root()?.navigate(
+      user?.role === "admin"
+        ? "Admin"
+        : user?.role === "recruiter"
+        ? "Recruiter"
+        : "Candidate"
+    );
+
+  return (
+    <ScrollView
+      style={styles.screen}
+      contentContainerStyle={styles.content}
+      keyboardShouldPersistTaps="handled"
+    >
+      {/* Header */}
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginTop: 25,
+          marginBottom: 24,
+        }}
+      >
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            flexShrink: 1,
+          }}
+        >
+          <Image
+            source={require("../../assets/jobify.png")}
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 10,
+              marginRight: 9,
+            }}
+          />
+
+          <Text
+            style={{
+              fontSize: 22,
+              fontWeight: "900",
+              color: colors.text,
+            }}
+          >
+            Jobify
+          </Text>
+        </View>
+
+        <View
+          style={{
+            flexDirection: "row",
+            gap: 7,
+            alignItems: "center",
+          }}
+        >
+          <ThemeToggle compact />
+
+          {isAuthenticated ? (
+            <View
+              style={{
+                flexDirection: "row",
+                gap: 7,
+                alignItems: "center",
+              }}
+            >
+              <TouchableOpacity
+                style={styles.outline}
+                onPress={dash}
+              >
+                <Text style={styles.outlineText}>
+                  Dashboard
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.outline,
+                  { borderColor: "#fecaca" },
+                ]}
+                onPress={logout}
+              >
+                <Ionicons
+                  name="log-out-outline"
+                  size={18}
+                  color={colors.danger}
+                />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View
+              style={{
+                flexDirection: "row",
+                gap: 7,
+                alignItems: "center",
+              }}
+            >
+              <TouchableOpacity
+                onPress={() => root()?.navigate("Login")}
+                style={{ padding: 10 }}
+              >
+                <Text
+                  style={{
+                    fontWeight: "800",
+                    color: colors.text,
+                  }}
+                >
+                  Login
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => root()?.navigate("Register")}
+                style={{
+                  backgroundColor: colors.primary,
+                  borderRadius: 10,
+                  paddingHorizontal: 13,
+                  paddingVertical: 10,
+                }}
+              >
+                <Text
+                  style={{
+                    color: "#fff",
+                    fontWeight: "800",
+                  }}
+                >
+                  Get Started
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      </View>
+
+      {/* Hero section */}
+      <Text
+        style={{
+          fontSize: 12,
+          color: colors.primary,
+          fontWeight: "900",
+          letterSpacing: 0.5,
+        }}
+      >
+        ✦ FIND OPPORTUNITIES THAT MATCH YOUR POTENTIAL
+      </Text>
+
+      <Text
+        style={{
+          fontSize: 37,
+          lineHeight: 44,
+          fontWeight: "900",
+          color: colors.text,
+          marginTop: 12,
+        }}
+      >
+        Find your next{" "}
+        <Text style={{ color: colors.primary }}>
+          career opportunity
+        </Text>
+      </Text>
+
+      <Text style={styles.subtitle}>
+        Discover jobs from leading companies, build your
+        professional profile, and take the next step in your
+        career.
+      </Text>
+
+      {/* Authentication buttons */}
+      {!isAuthenticated && (
+        <View
+          style={{
+            flexDirection: "row",
+            gap: 8,
+          }}
+        >
+          <TouchableOpacity
+            style={[styles.outline, { flex: 1 }]}
+            onPress={() => root()?.navigate("Login")}
+          >
+            <Text style={styles.outlineText}>
+              Sign In
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.button, { flex: 1 }]}
+            onPress={() => root()?.navigate("Register")}
+          >
+            <Text style={styles.buttonText}>
+              Create Account
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Job search card */}
+      <View
+        style={[
+          styles.card,
+          { marginTop: 10 },
+        ]}
+      >
+        <Text style={styles.label}>
+          Job title, skills or keywords
+        </Text>
+
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            borderWidth: 1,
+            borderColor: colors.border,
+            borderRadius: 12,
+            paddingHorizontal: 12,
+          }}
+        >
+          <Ionicons
+            name="search"
+            size={19}
+            color={colors.muted}
+          />
+
+          <TextInput
+            style={{
+              flex: 1,
+              padding: 12,
+              color: colors.text,
+            }}
+            value={k}
+            onChangeText={setK}
+            placeholder="Search jobs"
+            placeholderTextColor="#94a3b8"
+            returnKeyType="search"
+            onSubmitEditing={() =>
+              navigation.navigate("Jobs", {
+                keyword: k,
+                location: loc,
+              })
+            }
+          />
+        </View>
+
+        <Text
+          style={[
+            styles.label,
+            { marginTop: 12 },
+          ]}
+        >
+          Location
+        </Text>
+
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            borderWidth: 1,
+            borderColor: colors.border,
+            borderRadius: 12,
+            paddingHorizontal: 12,
+          }}
+        >
+          <Ionicons
+            name="location-outline"
+            size={19}
+            color={colors.muted}
+          />
+
+          <TextInput
+            style={{
+              flex: 1,
+              padding: 12,
+              color: colors.text,
+            }}
+            value={loc}
+            onChangeText={setLoc}
+            placeholder="Location"
+            placeholderTextColor="#94a3b8"
+            returnKeyType="search"
+            onSubmitEditing={() =>
+              navigation.navigate("Jobs", {
+                keyword: k,
+                location: loc,
+              })
+            }
+          />
+        </View>
+
+        <TouchableOpacity
+          style={[
+            styles.button,
+            { marginTop: 12 },
+          ]}
+          onPress={() =>
+            navigation.navigate("Jobs", {
+              keyword: k,
+              location: loc,
+            })
+          }
+        >
+          <Text style={styles.buttonText}>
+            Search Jobs
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Popular searches */}
+      <Text
+        style={{
+          fontSize: 21,
+          fontWeight: "800",
+          color: colors.text,
+          marginVertical: 8,
+        }}
+      >
+        Popular searches
+      </Text>
+
+      <View
+        style={{
+          flexDirection: "row",
+          flexWrap: "wrap",
+          gap: 8,
+        }}
+      >
+        {popular.map((x) => (
+          <TouchableOpacity
+            key={x}
+            style={[
+              styles.chip,
+              {
+                borderWidth: 1,
+                borderColor: colors.border,
+                backgroundColor: colors.card,
+              },
+            ]}
+            onPress={() =>
+              navigation.navigate("Jobs", {
+                keyword: x,
+              })
+            }
+          >
+            <Text
+              style={{
+                color: colors.text,
+                fontWeight: "700",
+              }}
+            >
+              {x}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* Popular job categories */}
+      <View
+        style={{
+          flexDirection: "row",
+          justifyContent: "space-between",
+          alignItems: "flex-end",
+          marginTop: 24,
+          marginBottom: 10,
+        }}
+      >
+        <View style={{ flexShrink: 1 }}>
+          <Text
+            style={{
+              fontSize: 21,
+              fontWeight: "800",
+              color: colors.text,
+            }}
+          >
+            Popular job categories
+          </Text>
+
+          <Text style={styles.muted}>
+            Explore roles across industries.
+          </Text>
+        </View>
+
+        <TouchableOpacity
+          onPress={() => navigation.navigate("Jobs")}
+        >
+          <Text
+            style={{
+              color: colors.primary,
+              fontWeight: "800",
+            }}
+          >
+            View all →
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {categories.map((x) => (
+        <TouchableOpacity
+          key={x}
+          style={styles.card}
+          onPress={() =>
+            navigation.navigate("Jobs", {
+              category: x,
+            })
+          }
+        >
+          <View style={styles.row}>
+            <View>
+              <Text
+                style={{
+                  fontWeight: "800",
+                  color: colors.text,
+                }}
+              >
+                {x}
+              </Text>
+
+              <Text
+                style={[
+                  styles.muted,
+                  { marginTop: 4 },
+                ]}
+              >
+                Explore jobs
+              </Text>
+            </View>
+
+            <Ionicons
+              name="arrow-forward"
+              color={colors.primary}
+            />
+          </View>
+        </TouchableOpacity>
+      ))}
+
+      {/* About Jobify */}
+      <View
+        style={[
+          styles.card,
+          { marginTop: 6 },
+        ]}
+      >
+        <Text
+          style={{
+            fontSize: 21,
+            fontWeight: "800",
+            color: colors.text,
+          }}
+        >
+          Everything you need to move your career forward
+        </Text>
+
+        <Text
+          style={[
+            styles.muted,
+            {
+              marginTop: 8,
+              lineHeight: 22,
+            },
+          ]}
+        >
+          Build your profile, discover opportunities, track
+          applications and connect with employers.
+        </Text>
+
+        <TouchableOpacity
+          style={[
+            styles.outline,
+            { marginTop: 25 },
+          ]}
+          onPress={() => root()?.navigate("About")}
+        >
+          <Text style={styles.outlineText}>
+            Learn more about Jobify
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.outline}
+          onPress={() => root()?.navigate("Contact")}
+        >
+          <Text style={styles.outlineText}>
+            Contact support
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
+  );
+}

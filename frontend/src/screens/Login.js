@@ -14,6 +14,7 @@ import { toast } from "../services/toast";
 import { styles, Field } from "../components/common";
 import { useAuth } from "../context/AuthContext";
 import { colors } from "../theme/theme";
+import GoogleAuthButton from "../components/GoogleAuthButton";
 
 export default function Login({ navigation, route }) {const { mode: __themeMode } = useTheme();
   const { login } = useAuth();
@@ -58,7 +59,7 @@ export default function Login({ navigation, route }) {const { mode: __themeMode 
       <ScrollView contentContainerStyle={[styles.content, { paddingTop: 55 }]} keyboardShouldPersistTaps="handled">
         <View style={{flexDirection:"row",justifyContent:"space-between",alignItems:"center"}}><BackButton label="Back to Jobify" /><ThemeToggle compact /></View>
 
-        <View style={[styles.card, { padding: 22 }]}> 
+        <View style={[styles.card, { padding: 22, width: "100%", maxWidth: 620, alignSelf: "center" }]}> 
           <Text style={{ fontSize: 32, fontWeight: "900", color: colors.primary }}>Jobify</Text>
           <Text style={[styles.title, { marginTop: 8 }]}>Sign in to your account</Text>
           <Text style={styles.subtitle}>Enter your details to continue.</Text>
@@ -90,6 +91,14 @@ export default function Login({ navigation, route }) {const { mode: __themeMode 
           <TouchableOpacity style={styles.button} onPress={submit} disabled={busy}>
             <Text style={styles.buttonText}>{busy ? "Signing in..." : "Sign In"}</Text>
           </TouchableOpacity>
+
+          <View style={{ flexDirection: "row", alignItems: "center", marginVertical: 8 }}>
+            <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
+            <Text style={{ marginHorizontal: 10, color: colors.muted, fontSize: 12, fontWeight: "700" }}>OR</Text>
+            <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
+          </View>
+
+          <GoogleAuthButton role="jobseeker" />
 
           <View style={{ borderTopWidth: 1, borderTopColor: colors.border, marginTop: 10, paddingTop: 18 }}>
             <Text style={{ textAlign: "center", color: colors.muted }}>

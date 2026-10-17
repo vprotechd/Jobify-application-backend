@@ -10,7 +10,17 @@ import { connectNotificationSocket } from "../services/socket";
 
 export const styles = {
   screen: { flex: 1, backgroundColor: colors.bg },
-  content: { padding: 20, paddingBottom: 44 },
+  // Shared responsive page container: full-width on phones and centered
+  // with a readable maximum width on tablets/web. Existing screen styles
+  // continue to work without changing the visual theme.
+  content: {
+    width: "100%",
+    maxWidth: 960,
+    alignSelf: "center",
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 44,
+  },
   title: { fontSize: 28, fontWeight: "800", color: colors.text, marginBottom: 6 },
   subtitle: { fontSize: 14, color: colors.muted, lineHeight: 21, marginBottom: 18 },
   card: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 18, padding: 16, marginBottom: 14, ...shadow },

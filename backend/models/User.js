@@ -23,6 +23,20 @@ const userSchema = new mongoose.Schema(
       minlength: 6,
     },
 
+    // Google identity used for OAuth sign-in. Sparse unique allows
+    // existing password-only accounts to remain unchanged.
+    googleId: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
+
+    authProvider: {
+      type: String,
+      enum: ["local", "google"],
+      default: "local",
+    },
+
     role: {
       type: String,
       enum: ["jobseeker", "recruiter", "admin"],

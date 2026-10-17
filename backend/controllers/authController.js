@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { OAuth2Client } from "google-auth-library";
 import User from "../models/User.js";
 import bcrypt from "bcryptjs";
 
@@ -354,6 +355,132 @@ export const login = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Login failed",
+    });
+  }
+};
+
+
+// =====================================================
+// GOOGLE LOGIN
+// =====================================================
+
+const getGoogleClientIds = () =>
+  [
+    process.env.GOOGLE_WEB_CLIENT_ID,
+    process.env.GOOGLE_ANDROID_CLIENT_ID,
+    process.env.GOOGLE_IOS_CLIENT_ID,
+  ].filter(Boolean);
+
+export const googleLogin = async (req, res) => {
+  try {
+    const { idToken, role } = req.body || {};
+
+    if (!idToken) {
+      return res.status(400).json({
+        success: false,
+        message: "Google identity token is required.",
+      });
+    }
+
+    const clientIds = getGoogleClientIds();
+
+    if (!clientIds.length) {
+      console.error("Google authentication is not configured on the backend.");
+      return res.status(500).json({
+        success: false,
+        message: "Google authentication is not configured on the server.",
+      });
+    }
+
+    const client = new OAuth2Client();
+    const ticket = await client.verifyIdToken({
+      idToken: String(idToken),
+      audience: clientIds,
+    });
+
+    const payload = ticket.getPayload();
+
+    if (!payload?.sub || !payload?.email) {
+      return res.status(401).json({
+        success: false,
+        message: "Google account information could not be verified.",
+      });
+    }
+
+    if (payload.email_verified !== true) {
+      return res.status(403).json({
+        success: false,
+        message: "Your Google email address is not verified.",
+      });
+    }
+
+    const normalizedEmail = String(payload.email).trim().toLowerCase();
+    const cleanName =
+      String(payload.name || payload.given_name || normalizedEmail.split("@")[0]).trim();
+    const safeRole = role === "recruiter" ? "recruiter" : "jobseeker";
+
+    let user = await User.findOne({
+      $or: [
+        { googleId: String(payload.sub) },
+        { email: normalizedEmail },
+      ],
+    });
+
+    if (!user) {
+      // Local password is required by the existing schema. This random value
+      // is never exposed or used for Google users.
+      const randomPassword = crypto.randomBytes(32).toString("hex");
+
+      user = new User({
+        name: cleanName,
+        email: normalizedEmail,
+        password: randomPassword,
+        role: safeRole,
+        googleId: String(payload.sub),
+        authProvider: "google",
+        isVerified: true,
+        profileImage: String(payload.picture || ""),
+      });
+    } else {
+      if (user.isActive === false) {
+        return res.status(403).json({
+          success: false,
+          message: "Your account has been deactivated.",
+        });
+      }
+
+      // Link an existing Jobify account with the verified Google identity.
+      user.googleId = String(payload.sub);
+      user.authProvider = "google";
+      user.isVerified = true;
+
+      if (!user.name && cleanName) user.name = cleanName;
+      if (!user.profileImage && payload.picture) {
+        user.profileImage = String(payload.picture);
+      }
+    }
+
+    await user.save();
+
+    const token = generateToken(user);
+
+    return res.status(200).json({
+      success: true,
+      message: "Google login successful",
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+    });
+  } catch (error) {
+    console.error("Google login error:", error);
+
+    return res.status(401).json({
+      success: false,
+      message: "Unable to verify your Google account. Please try again.",
     });
   }
 };

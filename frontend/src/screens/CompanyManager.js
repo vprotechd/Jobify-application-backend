@@ -1,20 +1,514 @@
-import { useTheme } from "../context/ThemeContext";
-import React,{useCallback,useState}from"react";
-import{Alert,Image,ScrollView,Text,TouchableOpacity,View}from"react-native";
-import{useFocusEffect}from"@react-navigation/native";
-import*as ImagePicker from"expo-image-picker";
-import api,{apiError}from"../services/api";
-import{Field,Header,Loader,Empty,styles}from"../components/common";
-import{colors}from"../theme/theme";
 
-const blank={name:"",industry:"",location:"",description:"",website:"",employeeCount:"",logo:""};
-export default function CompanyManager(){const { mode: __themeMode } = useTheme();
- const[c,setC]=useState([]),[loading,setLoading]=useState(true),[show,setShow]=useState(false),[busy,setBusy]=useState(false),[editing,setEditing]=useState(null),[f,setF]=useState(blank),[logoFile,setLogoFile]=useState(null);
- const load=async()=>{try{const r=await api.get("/companies/recruiter/mine");setC(r.data.companies||[])}catch(e){Alert.alert("Companies",apiError(e))}finally{setLoading(false)}};
- useFocusEffect(useCallback(()=>{load()},[]));
- const pickLogo=async()=>{const perm=await ImagePicker.requestMediaLibraryPermissionsAsync();if(!perm.granted)return Alert.alert("Permission required","Allow photo access to select a company logo.");const r=await ImagePicker.launchImageLibraryAsync({mediaTypes:["images"],allowsEditing:true,aspect:[1,1],quality:.8});if(!r.canceled&&r.assets?.[0]){const a=r.assets[0];setLogoFile({uri:a.uri,name:a.fileName||"company-logo.jpg",type:a.mimeType||"image/jpeg"});setF(x=>({...x,logo:a.uri}))}};
- const reset=()=>{setF(blank);setLogoFile(null);setEditing(null);setShow(false)};
- const save=async()=>{if(!f.name.trim())return Alert.alert("Company","Company name is required.");setBusy(true);try{const fd=new FormData();["name","industry","location","description","website","employeeCount"].forEach(k=>fd.append(k,f[k]||""));if(logoFile)fd.append("logo",logoFile);if(editing)await api.put(`/companies/${editing}`,fd);else await api.post("/companies",fd);Alert.alert("Company",editing?"Company updated successfully.":"Company created successfully.");reset();load()}catch(e){Alert.alert("Company",apiError(e,"Unable to save company."))}finally{setBusy(false)}};
- const edit=x=>{setEditing(x._id);setF({...blank,...x});setLogoFile(null);setShow(true)};
- const remove=x=>Alert.alert("Delete company",`Delete ${x.name}?`,[{text:"Cancel",style:"cancel"},{text:"Delete",style:"destructive",onPress:async()=>{try{await api.delete(`/companies/${x._id}`);Alert.alert("Company","Company deleted successfully.");load()}catch(e){Alert.alert("Delete",apiError(e,"Unable to delete company."))}}}]);
- return <ScrollView style={styles.screen} contentContainerStyle={styles.content}><Header title="My Companies" subtitle="Add, update and manage the company details used on your job listings."/><TouchableOpacity style={styles.button} onPress={()=>{if(show)reset();else{setEditing(null);setF(blank);setLogoFile(null);setShow(true)}}}><Text style={styles.buttonText}>{show?"Close": "+ Add Company"}</Text></TouchableOpacity>{show&&<View style={styles.card}><Text style={{fontSize:18,fontWeight:"800",marginBottom:10}}>{editing?"Edit Company":"Add Company"}</Text><TouchableOpacity style={[styles.outline,{alignItems:"center"}]} onPress={pickLogo}><Text style={styles.outlineText}>{f.logo?"Change company logo":"Add company logo"}</Text></TouchableOpacity>{f.logo?<Image source={{uri:f.logo}} style={{width:90,height:90,borderRadius:18,alignSelf:"center",marginBottom:12}}/>:null}<Field label="Company name *" value={f.name} onChangeText={v=>setF(x=>({...x,name:v}))}/><Field label="Industry" value={f.industry} onChangeText={v=>setF(x=>({...x,industry:v}))}/><Field label="Location" value={f.location} onChangeText={v=>setF(x=>({...x,location:v}))}/><Field label="Website" value={f.website} onChangeText={v=>setF(x=>({...x,website:v}))}/><Field label="Employees" value={f.employeeCount} onChangeText={v=>setF(x=>({...x,employeeCount:v}))}/><Field label="Description" value={f.description} onChangeText={v=>setF(x=>({...x,description:v}))} multiline/><TouchableOpacity style={styles.button} onPress={save} disabled={busy}><Text style={styles.buttonText}>{busy?"Saving...":editing?"Update Company":"Create Company"}</Text></TouchableOpacity></View>}{loading?<Loader/>:!c.length?<Empty text="No companies yet. Create one before posting jobs."/>:c.map(x=><View style={styles.card} key={x._id}><View style={{flexDirection:"row",gap:12,alignItems:"center"}}>{x.logo?<Image source={{uri:x.logo}} style={{width:58,height:58,borderRadius:14}}/>:<View style={{width:58,height:58,borderRadius:14,backgroundColor:"#eef2ff",alignItems:"center",justifyContent:"center"}}><Text style={{fontSize:22,fontWeight:"900",color:colors.primary}}>{x.name?.charAt(0)||"C"}</Text></View>}<View style={{flex:1}}><Text style={{fontSize:18,fontWeight:"800"}}>{x.name}</Text><Text style={styles.muted}>{x.industry||"Industry not set"} • {x.location||"Location not set"}</Text></View></View><Text style={{marginTop:8,color:x.isVerified?colors.success:colors.warning,fontWeight:"700"}}>{x.isVerified?"Verified":"Verification pending"}</Text><View style={{flexDirection:"row",gap:8,marginTop:12}}><TouchableOpacity style={[styles.outline,{flex:1}]} onPress={()=>edit(x)}><Text style={styles.outlineText}>Edit</Text></TouchableOpacity><TouchableOpacity style={[styles.outline,{flex:1,borderColor:"#fecaca"}]} onPress={()=>remove(x)}><Text style={{color:colors.danger,fontWeight:"800"}}>Delete</Text></TouchableOpacity></View></View>)}</ScrollView>}
+import { useTheme } from "../context/ThemeContext";
+import React, { useCallback, useState } from "react";
+import {
+  Alert,
+  Image,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
+import * as ImagePicker from "expo-image-picker";
+import api, { apiError } from "../services/api";
+import {
+  Field,
+  Header,
+  Loader,
+  Empty,
+  styles,
+} from "../components/common";
+import { colors } from "../theme/theme";
+
+const blank = {
+  name: "",
+  industry: "",
+  location: "",
+  description: "",
+  website: "",
+  employeeCount: "",
+  logo: "",
+};
+
+export default function CompanyManager() {
+  const { mode: __themeMode } = useTheme();
+
+  const [companies, setCompanies] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [show, setShow] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [form, setForm] = useState(blank);
+  const [logoFile, setLogoFile] = useState(null);
+
+  const load = async () => {
+    try {
+      const response = await api.get("/companies/recruiter/mine");
+      setCompanies(response.data.companies || []);
+    } catch (error) {
+      Alert.alert("Companies", apiError(error));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [])
+  );
+
+  const pickLogo = async () => {
+    try {
+      const permission =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (!permission.granted) {
+        Alert.alert(
+          "Permission required",
+          "Allow photo access to select a company logo."
+        );
+        return;
+      }
+
+      const result =
+        await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ["images"],
+          allowsEditing: true,
+          aspect: [1, 1],
+          quality: 0.8,
+        });
+
+      if (!result.canceled && result.assets?.[0]) {
+        const asset = result.assets[0];
+
+        setLogoFile({
+          uri: asset.uri,
+          name: asset.fileName || "company-logo.jpg",
+          type: asset.mimeType || "image/jpeg",
+        });
+
+        setForm((current) => ({
+          ...current,
+          logo: asset.uri,
+        }));
+      }
+    } catch (error) {
+      Alert.alert("Logo", "Unable to select the company logo.");
+    }
+  };
+
+  const reset = () => {
+    setForm(blank);
+    setLogoFile(null);
+    setEditing(null);
+    setShow(false);
+  };
+
+  const save = async () => {
+    if (!form.name.trim()) {
+      Alert.alert("Company", "Company name is required.");
+      return;
+    }
+
+    setBusy(true);
+
+    try {
+      const formData = new FormData();
+
+      [
+        "name",
+        "industry",
+        "location",
+        "description",
+        "website",
+        "employeeCount",
+      ].forEach((key) => {
+        formData.append(key, form[key] || "");
+      });
+
+      if (logoFile) {
+        formData.append("logo", logoFile);
+      }
+
+      if (editing) {
+        await api.put(`/companies/${editing}`, formData);
+      } else {
+        await api.post("/companies", formData);
+      }
+
+      Alert.alert(
+        "Company",
+        editing
+          ? "Company updated successfully."
+          : "Company created successfully."
+      );
+
+      reset();
+      await load();
+    } catch (error) {
+      Alert.alert(
+        "Company",
+        apiError(error, "Unable to save company.")
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const edit = (company) => {
+    setEditing(company._id);
+    setForm({ ...blank, ...company });
+    setLogoFile(null);
+    setShow(true);
+  };
+
+  const remove = (company) => {
+    Alert.alert(
+      "Delete company",
+      `Delete ${company.name}?`,
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await api.delete(`/companies/${company._id}`);
+
+              Alert.alert(
+                "Company",
+                "Company deleted successfully."
+              );
+
+              await load();
+            } catch (error) {
+              Alert.alert(
+                "Delete",
+                apiError(error, "Unable to delete company.")
+              );
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const updateField = (key, value) => {
+    setForm((current) => ({
+      ...current,
+      [key]: value,
+    }));
+  };
+
+  return (
+    <ScrollView
+      style={styles.screen}
+      contentContainerStyle={[
+        styles.content,
+        {
+          paddingTop: 40,
+          paddingBottom: 32,
+        },
+      ]}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+    >
+      <Header
+        title="My Companies"
+        subtitle="Add, update and manage the company details used on your job listings."
+      />
+
+      <TouchableOpacity
+        style={[styles.button, { marginBottom: 16 }]}
+        activeOpacity={0.8}
+        onPress={() => {
+          if (show) {
+            reset();
+          } else {
+            setEditing(null);
+            setForm(blank);
+            setLogoFile(null);
+            setShow(true);
+          }
+        }}
+      >
+        <Text style={styles.buttonText}>
+          {show ? "Close Form" : "+ Add Company"}
+        </Text>
+      </TouchableOpacity>
+
+      {show && (
+        <View style={styles.card}>
+          <Text
+            style={{
+              fontSize: 20,
+              fontWeight: "800",
+              color: colors.text,
+              marginBottom: 14,
+            }}
+          >
+            {editing ? "Edit Company" : "Add Company"}
+          </Text>
+
+          <TouchableOpacity
+            style={[
+              styles.outline,
+              {
+                alignItems: "center",
+                marginBottom: 14,
+              },
+            ]}
+            onPress={pickLogo}
+            activeOpacity={0.75}
+          >
+            <Text style={styles.outlineText}>
+              {form.logo
+                ? "Change Company Logo"
+                : "＋ Add Company Logo"}
+            </Text>
+          </TouchableOpacity>
+
+          {form.logo ? (
+            <Image
+              source={{ uri: form.logo }}
+              resizeMode="cover"
+              style={{
+                width: 100,
+                height: 100,
+                borderRadius: 18,
+                alignSelf: "center",
+                marginBottom: 18,
+              }}
+            />
+          ) : null}
+
+          <Field
+            label="Company name *"
+            value={form.name}
+            onChangeText={(value) =>
+              updateField("name", value)
+            }
+          />
+
+          <Field
+            label="Industry"
+            value={form.industry}
+            onChangeText={(value) =>
+              updateField("industry", value)
+            }
+          />
+
+          <Field
+            label="Location"
+            value={form.location}
+            onChangeText={(value) =>
+              updateField("location", value)
+            }
+          />
+
+          <Field
+            label="Website"
+            value={form.website}
+            onChangeText={(value) =>
+              updateField("website", value)
+            }
+          />
+
+          <Field
+            label="Employees"
+            value={String(form.employeeCount ?? "")}
+            onChangeText={(value) =>
+              updateField("employeeCount", value)
+            }
+          />
+
+          <Field
+            label="Description"
+            value={form.description}
+            onChangeText={(value) =>
+              updateField("description", value)
+            }
+            multiline
+          />
+
+          <TouchableOpacity
+            style={[
+              styles.button,
+              { marginTop: 8 },
+            ]}
+            onPress={save}
+            disabled={busy}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.buttonText}>
+              {busy
+                ? "Saving..."
+                : editing
+                  ? "Update Company"
+                  : "Create Company"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {loading ? (
+        <Loader />
+      ) : companies.length === 0 ? (
+        <Empty text="No companies yet. Create one before posting jobs." />
+      ) : (
+        companies.map((company) => (
+          <View
+            style={styles.card}
+            key={company._id}
+          >
+            <View
+              style={{
+                flexDirection: "row",
+                gap: 12,
+                alignItems: "center",
+              }}
+            >
+              {company.logo ? (
+                <Image
+                  source={{ uri: company.logo }}
+                  resizeMode="cover"
+                  style={{
+                    width: 60,
+                    height: 60,
+                    borderRadius: 14,
+                  }}
+                />
+              ) : (
+                <View
+                  style={{
+                    width: 60,
+                    height: 60,
+                    borderRadius: 14,
+                    backgroundColor: colors.primary + "18",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 24,
+                      fontWeight: "900",
+                      color: colors.primary,
+                    }}
+                  >
+                    {company.name?.charAt(0)?.toUpperCase() || "C"}
+                  </Text>
+                </View>
+              )}
+
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={{
+                    fontSize: 18,
+                    fontWeight: "800",
+                    color: colors.text,
+                  }}
+                >
+                  {company.name}
+                </Text>
+
+                <Text
+                  style={[
+                    styles.muted,
+                    { marginTop: 5 },
+                  ]}
+                >
+                  {company.industry || "Industry not set"}
+                </Text>
+
+                <Text
+                  style={[
+                    styles.muted,
+                    { marginTop: 3 },
+                  ]}
+                >
+                  {company.location || "Location not set"}
+                </Text>
+              </View>
+            </View>
+
+            <View
+              style={{
+                alignSelf: "flex-start",
+                marginTop: 14,
+                paddingHorizontal: 11,
+                paddingVertical: 6,
+                borderRadius: 8,
+                backgroundColor: company.isVerified
+                  ? colors.success + "18"
+                  : colors.warning + "18",
+              }}
+            >
+              <Text
+                style={{
+                  color: company.isVerified
+                    ? colors.success
+                    : colors.warning,
+                  fontWeight: "800",
+                  fontSize: 12,
+                }}
+              >
+                {company.isVerified
+                  ? "✓ Verified"
+                  : "Verification pending"}
+              </Text>
+            </View>
+
+            <View
+              style={{
+                flexDirection: "row",
+                gap: 10,
+                marginTop: 14,
+              }}
+            >
+              <TouchableOpacity
+                style={[
+                  styles.outline,
+                  { flex: 1 },
+                ]}
+                onPress={() => edit(company)}
+                activeOpacity={0.75}
+              >
+                <Text style={styles.outlineText}>
+                  Edit
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.outline,
+                  {
+                    flex: 1,
+                    borderColor: colors.danger,
+                  },
+                ]}
+                onPress={() => remove(company)}
+                activeOpacity={0.75}
+              >
+                <Text
+                  style={{
+                    color: colors.danger,
+                    fontWeight: "800",
+                    textAlign: "center",
+                  }}
+                >
+                  Delete
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ))
+      )}
+    </ScrollView>
+  );
+}

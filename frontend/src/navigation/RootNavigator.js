@@ -78,22 +78,25 @@ function PublicTabs() {
         tabBarLabelStyle: {
           fontSize: 11,
         },
-        tabBarStyle: {
-          backgroundColor: "#FFF8EF",
-          borderTopColor: colors.border,
-          borderTopWidth: 1,
-          elevation: 8,
-          shadowColor: "#0b1736",
-          shadowOpacity: 0.08,
-          shadowRadius: 8,
-          shadowOffset: {
-            width: 0,
-            height: -2,
-          },
-          height: 60,
-          paddingBottom: 6,
-          paddingTop: 5,
-        },
+        
+tabBarStyle: {
+  backgroundColor: "#FFF8EF",
+  borderTopColor: colors.border,
+  borderTopWidth: 1,
+  elevation: 8,
+  shadowColor: "#0b1736",
+  shadowOpacity: 0.08,
+  shadowRadius: 8,
+  shadowOffset: {
+    width: 0,
+    height: -2,
+  },
+  height: 66,
+  paddingBottom: 8,
+  paddingTop: 5,
+  marginBottom: 4,
+},
+
         tabBarIconStyle: {
           marginTop: 1,
         },
@@ -138,22 +141,25 @@ function CandidateTabs() {
         tabBarLabelStyle: {
           fontSize: 9,
         },
-        tabBarStyle: {
-          backgroundColor: "#FFF8EF",
-          borderTopColor: colors.border,
-          borderTopWidth: 1,
-          elevation: 8,
-          shadowColor: "#0b1736",
-          shadowOpacity: 0.08,
-          shadowRadius: 8,
-          shadowOffset: {
-            width: 0,
-            height: -2,
-          },
-          height: 60,
-          paddingBottom: 6,
-          paddingTop: 5,
-        },
+       
+tabBarStyle: {
+  backgroundColor: "#FFF8EF",
+  borderTopColor: colors.border,
+  borderTopWidth: 1,
+  elevation: 8,
+  shadowColor: "#0b1736",
+  shadowOpacity: 0.08,
+  shadowRadius: 8,
+  shadowOffset: {
+    width: 0,
+    height: -2,
+  },
+  height: 66,
+  paddingBottom: 8,
+  paddingTop: 5,
+  marginBottom: 4,
+},
+
       }}
     >
       <Tabs.Screen
@@ -221,22 +227,25 @@ function RecruiterTabs() {
         tabBarLabelStyle: {
           fontSize: 9,
         },
-        tabBarStyle: {
-          backgroundColor: "#FFF8EF",
-          borderTopColor: colors.border,
-          borderTopWidth: 1,
-          elevation: 8,
-          shadowColor: "#0b1736",
-          shadowOpacity: 0.08,
-          shadowRadius: 8,
-          shadowOffset: {
-            width: 0,
-            height: -2,
-          },
-          height: 60,
-          paddingBottom: 6,
-          paddingTop: 5,
-        },
+        
+tabBarStyle: {
+  backgroundColor: "#FFF8EF",
+  borderTopColor: colors.border,
+  borderTopWidth: 1,
+  elevation: 8,
+  shadowColor: "#0b1736",
+  shadowOpacity: 0.08,
+  shadowRadius: 8,
+  shadowOffset: {
+    width: 0,
+    height: -2,
+  },
+  height: 66,
+  paddingBottom: 8,
+  paddingTop: 5,
+  marginBottom: 4,
+},
+
       }}
     >
       <Tabs.Screen
@@ -304,22 +313,25 @@ function AdminTabs() {
         tabBarLabelStyle: {
           fontSize: 9,
         },
-        tabBarStyle: {
-          backgroundColor: "#FFF8EF",
-          borderTopColor: colors.border,
-          borderTopWidth: 1,
-          elevation: 8,
-          shadowColor: "#0b1736",
-          shadowOpacity: 0.08,
-          shadowRadius: 8,
-          shadowOffset: {
-            width: 0,
-            height: -2,
-          },
-          height: 60,
-          paddingBottom: 6,
-          paddingTop: 5,
-        },
+       
+tabBarStyle: {
+  backgroundColor: "#FFF8EF",
+  borderTopColor: colors.border,
+  borderTopWidth: 1,
+  elevation: 8,
+  shadowColor: "#0b1736",
+  shadowOpacity: 0.08,
+  shadowRadius: 8,
+  shadowOffset: {
+    width: 0,
+    height: -2,
+  },
+  height: 66,
+  paddingBottom: 8,
+  paddingTop: 5,
+  marginBottom: 4,
+},
+
       }}
     >
       <Tabs.Screen

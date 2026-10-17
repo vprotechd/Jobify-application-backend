@@ -37,8 +37,25 @@ export function AuthProvider({ children }) {
     return data;
   };
 
+  const googleLogin = async (idToken, role = "jobseeker") => {
+    if (!idToken) throw new Error("Google identity token is missing.");
+    const response = await api.post("/auth/google", { idToken, role });
+    const data = response.data || {};
+    const token = data.token || data.accessToken || data.data?.token;
+    const userData = data.user || data.data?.user || data.data;
+    if (!token || !userData?.role) {
+      throw new Error(data.message || "Invalid Google login response from server.");
+    }
+    await AsyncStorage.multiSet([
+      [TOKEN_KEY, token],
+      [USER_KEY, JSON.stringify(userData)],
+    ]);
+    setUser(userData);
+    return data;
+  };
+
   const logout = async () => { await clearStored(); setUser(null); };
   const clearSession = logout;
-  return <AuthContext.Provider value={{ user, loading, isAuthenticated: Boolean(user), login, logout, clearSession }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, loading, isAuthenticated: Boolean(user), login, googleLogin, logout, clearSession }}>{children}</AuthContext.Provider>;
 }
 export function useAuth() { const value = useContext(AuthContext); if (!value) throw new Error("useAuth must be used inside AuthProvider"); return value; }

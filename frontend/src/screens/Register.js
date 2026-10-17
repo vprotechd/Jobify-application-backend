@@ -12,6 +12,7 @@ import api from "../services/api";
 import { styles, Field, BackButton, ThemeToggle } from "../components/common";
 import { colors } from "../theme/theme";
 import { toast } from "../services/toast";
+import GoogleAuthButton from "../components/GoogleAuthButton";
 
 const roles = [
   { value: "jobseeker", title: "Job Seeker", subtitle: "Find jobs", icon: "👤" },
@@ -132,7 +133,13 @@ export default function Register({ navigation }) {const { mode: __themeMode } = 
           );
         })}
 
+        <View style={{ flexDirection: "row", alignItems: "center", marginVertical: 6 }}>
+          <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
+          <Text style={{ marginHorizontal: 10, color: colors.muted, fontSize: 12, fontWeight: "700" }}>OR</Text>
+          <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
+        </View>
 
+        <GoogleAuthButton role={role} />
 
         <Field label="Full name" value={name} onChangeText={setName} placeholder="Your full name" autoCapitalize="words" />
         <Field label="Email address" value={email} onChangeText={setEmail} placeholder="you@example.com" autoCapitalize="none" keyboardType="email-address" />

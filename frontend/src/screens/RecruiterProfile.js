@@ -1,6 +1,413 @@
+
 import { useTheme } from "../context/ThemeContext";
-import React,{useEffect,useState}from"react";
-import{Alert,Image,ScrollView,Text,TouchableOpacity,View}from"react-native";
-import*as ImagePicker from"expo-image-picker";
-import{useAuth}from"../context/AuthContext";import api,{apiError}from"../services/api";import{Field,Header,Loader,styles}from"../components/common";import{colors}from"../theme/theme";
-export default function RecruiterProfile({navigation}){const { mode: __themeMode } = useTheme();const{logout}=useAuth();const[p,setP]=useState({}),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false);useEffect(()=>{api.get("/recruiter/profile").then(r=>setP(r.data.profile||r.data.recruiter||{})).catch(e=>Alert.alert("Profile",apiError(e))).finally(()=>setLoading(false))},[]);const save=async()=>{setBusy(true);try{const fd=new FormData();["name","company","designation","phone","location","website","bio","linkedin","portfolio"].forEach(k=>fd.append(k,p[k]||""));if(p._image)fd.append("profileImage",p._image);const r=await api.put("/recruiter/profile",fd);setP(r.data.profile||p);Alert.alert("Profile","Profile saved successfully.")}catch(e){Alert.alert("Profile",apiError(e,"Unable to save profile."))}finally{setBusy(false)}};const image=async()=>{const perm=await ImagePicker.requestMediaLibraryPermissionsAsync();if(!perm.granted)return Alert.alert("Permission required","Allow photo access to select a profile image.");const r=await ImagePicker.launchImageLibraryAsync({mediaTypes:["images"],allowsEditing:true,aspect:[1,1],quality:.8});if(!r.canceled&&r.assets?.[0]){const a=r.assets[0];setP(x=>({...x,_image:{uri:a.uri,name:a.fileName||"profile.jpg",type:a.mimeType||"image/jpeg"},profileImage:a.uri}))}};if(loading)return <Loader/>;return <ScrollView style={styles.screen} contentContainerStyle={styles.content}><Header title="Recruiter Profile" subtitle="Keep your professional information and company details up to date."/><View style={[styles.card,{alignItems:"center"}]}>{p.profileImage?<Image source={{uri:p.profileImage}} style={{width:110,height:110,borderRadius:55}}/>:<View style={{width:110,height:110,borderRadius:55,backgroundColor:"#e0e7ff",alignItems:"center",justifyContent:"center"}}><Text style={{fontSize:40,fontWeight:"900",color:colors.primary}}>{p.name?.charAt(0)||"R"}</Text></View>}<TouchableOpacity style={[styles.outline,{marginTop:12,minWidth:190}]} onPress={image}><Text style={styles.outlineText}>{p.profileImage?"Change profile image":"Add profile image"}</Text></TouchableOpacity></View><Field label="Name" value={p.name||""} onChangeText={v=>setP(x=>({...x,name:v}))}/><Field label="Company" value={p.company||""} onChangeText={v=>setP(x=>({...x,company:v}))}/><Field label="Designation" value={p.designation||""} onChangeText={v=>setP(x=>({...x,designation:v}))}/><Field label="Phone" value={p.phone||""} onChangeText={v=>setP(x=>({...x,phone:v}))}/><Field label="Location" value={p.location||""} onChangeText={v=>setP(x=>({...x,location:v}))}/><Field label="Website" value={p.website||""} onChangeText={v=>setP(x=>({...x,website:v}))}/><Field label="LinkedIn" value={p.linkedin||""} onChangeText={v=>setP(x=>({...x,linkedin:v}))} autoCapitalize="none"/><Field label="About" value={p.bio||""} onChangeText={v=>setP(x=>({...x,bio:v}))} multiline/><TouchableOpacity style={styles.button} onPress={save} disabled={busy}><Text style={styles.buttonText}>{busy?"Saving...":"Save Profile"}</Text></TouchableOpacity><TouchableOpacity style={[styles.outline,{borderColor:"#bfdbfe"}]} onPress={()=>navigation.navigate("CompanyManager")}><Text style={{color:colors.primary,fontWeight:"800"}}>Manage Company Details</Text></TouchableOpacity><TouchableOpacity style={[styles.outline,{borderColor:"#fecaca"}]} onPress={logout}><Text style={{color:colors.danger,fontWeight:"800"}}>Logout</Text></TouchableOpacity></ScrollView>}
+import React, { useEffect, useState } from "react";
+import {
+  Alert,
+  Image,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import * as ImagePicker from "expo-image-picker";
+import { useAuth } from "../context/AuthContext";
+import api, { apiError } from "../services/api";
+import {
+  Field,
+  Header,
+  Loader,
+  styles,
+} from "../components/common";
+import { colors } from "../theme/theme";
+
+export default function RecruiterProfile({ navigation }) {
+  const { mode: __themeMode } = useTheme();
+  const { logout } = useAuth();
+
+  const [profile, setProfile] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadProfile = async () => {
+      try {
+        const response = await api.get("/recruiter/profile");
+
+        if (mounted) {
+          setProfile(
+            response.data.profile ||
+              response.data.recruiter ||
+              {}
+          );
+        }
+      } catch (error) {
+        if (mounted) {
+          Alert.alert("Profile", apiError(error));
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadProfile();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const updateField = (key, value) => {
+    setProfile((current) => ({
+      ...current,
+      [key]: value,
+    }));
+  };
+
+  const save = async () => {
+    setBusy(true);
+
+    try {
+      const formData = new FormData();
+
+      [
+        "name",
+        "company",
+        "designation",
+        "phone",
+        "location",
+        "website",
+        "bio",
+        "linkedin",
+        "portfolio",
+      ].forEach((key) => {
+        formData.append(key, profile[key] || "");
+      });
+
+      if (profile._image) {
+        formData.append("profileImage", profile._image);
+      }
+
+      const response = await api.put(
+        "/recruiter/profile",
+        formData
+      );
+
+      setProfile(response.data.profile || profile);
+
+      Alert.alert(
+        "Profile",
+        "Profile saved successfully."
+      );
+    } catch (error) {
+      Alert.alert(
+        "Profile",
+        apiError(error, "Unable to save profile.")
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const pickImage = async () => {
+    try {
+      const permission =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (!permission.granted) {
+        Alert.alert(
+          "Permission required",
+          "Allow photo access to select a profile image."
+        );
+        return;
+      }
+
+      const result =
+        await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ["images"],
+          allowsEditing: true,
+          aspect: [1, 1],
+          quality: 0.8,
+        });
+
+      if (!result.canceled && result.assets?.[0]) {
+        const asset = result.assets[0];
+
+        setProfile((current) => ({
+          ...current,
+          _image: {
+            uri: asset.uri,
+            name: asset.fileName || "profile.jpg",
+            type: asset.mimeType || "image/jpeg",
+          },
+          profileImage: asset.uri,
+        }));
+      }
+    } catch (error) {
+      Alert.alert(
+        "Profile image",
+        "Unable to select the profile image."
+      );
+    }
+  };
+
+  if (loading) {
+    return <Loader />;
+  }
+
+  return (
+    <ScrollView
+      style={styles.screen}
+      contentContainerStyle={[
+        styles.content,
+        {
+          paddingTop: 40,
+          paddingBottom: 32,
+        },
+      ]}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+    >
+      <Header
+        title="Recruiter Profile"
+        subtitle="Keep your professional information and company details up to date."
+      />
+
+      <View
+        style={[
+          styles.card,
+          {
+            alignItems: "center",
+            paddingVertical: 24,
+          },
+        ]}
+      >
+        {profile.profileImage ? (
+          <Image
+            source={{ uri: profile.profileImage }}
+            resizeMode="cover"
+            style={{
+              width: 110,
+              height: 110,
+              borderRadius: 55,
+              borderWidth: 3,
+              borderColor: colors.primary + "30",
+            }}
+          />
+        ) : (
+          <View
+            style={{
+              width: 110,
+              height: 110,
+              borderRadius: 55,
+              backgroundColor: colors.primary + "18",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 40,
+                fontWeight: "900",
+                color: colors.primary,
+              }}
+            >
+              {profile.name?.charAt(0)?.toUpperCase() || "R"}
+            </Text>
+          </View>
+        )}
+
+        <Text
+          style={{
+            fontSize: 18,
+            fontWeight: "800",
+            color: colors.text,
+            marginTop: 12,
+          }}
+        >
+          {profile.name || "Recruiter"}
+        </Text>
+
+        <Text
+          style={{
+            color: colors.muted,
+            marginTop: 4,
+          }}
+        >
+          {profile.designation || "Recruiter Profile"}
+        </Text>
+
+        <TouchableOpacity
+          style={[
+            styles.outline,
+            {
+              marginTop: 16,
+              minWidth: 190,
+              alignItems: "center",
+            },
+          ]}
+          onPress={pickImage}
+          activeOpacity={0.75}
+        >
+          <Text style={styles.outlineText}>
+            {profile.profileImage
+              ? "Change Profile Image"
+              : "＋ Add Profile Image"}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.card}>
+        <Text
+          style={{
+            fontSize: 19,
+            fontWeight: "800",
+            color: colors.text,
+            marginBottom: 14,
+          }}
+        >
+          Personal Information
+        </Text>
+
+        <Field
+          label="Name"
+          value={profile.name || ""}
+          onChangeText={(value) =>
+            updateField("name", value)
+          }
+        />
+
+        <Field
+          label="Phone"
+          value={profile.phone || ""}
+          onChangeText={(value) =>
+            updateField("phone", value)
+          }
+        />
+
+        <Field
+          label="Location"
+          value={profile.location || ""}
+          onChangeText={(value) =>
+            updateField("location", value)
+          }
+        />
+      </View>
+
+      <View style={styles.card}>
+        <Text
+          style={{
+            fontSize: 19,
+            fontWeight: "800",
+            color: colors.text,
+            marginBottom: 14,
+          }}
+        >
+          Professional Information
+        </Text>
+
+        <Field
+          label="Company"
+          value={profile.company || ""}
+          onChangeText={(value) =>
+            updateField("company", value)
+          }
+        />
+
+        <Field
+          label="Designation"
+          value={profile.designation || ""}
+          onChangeText={(value) =>
+            updateField("designation", value)
+          }
+        />
+
+        <Field
+          label="Website"
+          value={profile.website || ""}
+          onChangeText={(value) =>
+            updateField("website", value)
+          }
+        />
+
+        <Field
+          label="LinkedIn"
+          value={profile.linkedin || ""}
+          onChangeText={(value) =>
+            updateField("linkedin", value)
+          }
+          autoCapitalize="none"
+        />
+
+        <Field
+          label="About"
+          value={profile.bio || ""}
+          onChangeText={(value) =>
+            updateField("bio", value)
+          }
+          multiline
+        />
+      </View>
+
+      <TouchableOpacity
+        style={[
+          styles.button,
+          { marginTop: 4 },
+        ]}
+        onPress={save}
+        disabled={busy}
+        activeOpacity={0.8}
+      >
+        <Text style={styles.buttonText}>
+          {busy ? "Saving..." : "Save Profile"}
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[
+          styles.outline,
+          { marginTop: 12 },
+        ]}
+        onPress={() =>
+          navigation.navigate("CompanyManager")
+        }
+        activeOpacity={0.75}
+      >
+        <Text
+          style={{
+            color: colors.primary,
+            fontWeight: "800",
+            textAlign: "center",
+          }}
+        >
+          Manage Company Details
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[
+          styles.outline,
+          {
+            marginTop: 10,
+            borderColor: colors.danger,
+          },
+        ]}
+        onPress={logout}
+        activeOpacity={0.75}
+      >
+        <Text
+          style={{
+            color: colors.danger,
+            fontWeight: "800",
+            textAlign: "center",
+          }}
+        >
+          Logout
+        </Text>
+      </TouchableOpacity>
+    </ScrollView>
+  );
+}

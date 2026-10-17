@@ -1,9 +1,10 @@
-import { useTheme } from "../context/ThemeContext";
-import React, { useEffect, useState } from "react";
+
+import React, { useCallback, useEffect, useState } from "react";
 import {
   Alert,
   Image,
   Platform,
+  RefreshControl,
   ScrollView,
   Text,
   TouchableOpacity,
@@ -13,6 +14,7 @@ import {
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 
+import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import api, { apiError, baseURL } from "../services/api";
 import {
@@ -23,47 +25,47 @@ import {
 } from "../components/common";
 import { colors } from "../theme/theme";
 
-export default function CandidateProfile() {const { mode: __themeMode } = useTheme();
+export default function CandidateProfile() {
+  const { mode: __themeMode } = useTheme();
   const { logout } = useAuth();
 
-  const [p, setP] = useState({});
+  const [profile, setProfile] = useState({});
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
 
-  useEffect(() => {
-    loadProfile();
+  const loadProfile = useCallback(async (showLoader = false) => {
+    if (showLoader) setLoading(true);
+
+    try {
+      const response = await api.get(
+        `/profile/me?_=${Date.now()}`
+      );
+
+      setProfile(response.data?.profile || {});
+    } catch (error) {
+      Alert.alert(
+        "Profile",
+        apiError(error, "Unable to load your profile.")
+      );
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, []);
 
   useEffect(() => {
+    loadProfile(true);
+  }, [loadProfile]);
+
+  useEffect(() => {
     setImageFailed(false);
-  }, [p.profileImage]);
+  }, [profile.profileImage]);
 
-  const loadProfile = async () => {
-    try {
-      const r = await api.get("/profile/me");
-      setP(r.data.profile || {});
-    } catch (e) {
-      Alert.alert("Profile", apiError(e));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  /*
-   * Converts backend image path into a complete URL.
-   *
-   * Examples:
-   * /uploads/profile.jpg
-   * -> https://jobify-application-backend.onrender.com/uploads/profile.jpg
-   *
-   * https://...
-   * -> remains unchanged
-   */
   const getProfileImageUrl = (image) => {
-    if (!image) return null;
+    if (!image || typeof image !== "string") return null;
 
-    // Local selected image
     if (
       image.startsWith("file://") ||
       image.startsWith("content://") ||
@@ -72,36 +74,141 @@ export default function CandidateProfile() {const { mode: __themeMode } = useThe
       return image;
     }
 
-    // Already complete URL
     if (/^https?:\/\//i.test(image)) {
       try {
         const parsed = new URL(image);
-        if (parsed.protocol === "http:" && !/^(localhost|127\.0\.0\.1)$/i.test(parsed.hostname)) {
+
+        if (
+          parsed.protocol === "http:" &&
+          !/^(localhost|127\.0\.0\.1)$/i.test(parsed.hostname)
+        ) {
           parsed.protocol = "https:";
-          return parsed.toString();
         }
-      } catch {}
-      return image;
+
+        return parsed.toString();
+      } catch {
+        return image;
+      }
     }
 
-    // Get backend root from API baseURL
     const backendRoot = String(baseURL || "")
       .replace(/\/api\/?$/i, "")
       .replace(/\/+$/, "");
 
-    // Backend returns /uploads/filename
-    if (image.startsWith("/")) {
-      return `${backendRoot}${image}`;
-    }
+    if (!backendRoot) return null;
 
-    return `${backendRoot}/${image}`;
+    return `${backendRoot}/${image.replace(/^\/+/, "")}`;
   };
 
-  const save = async () => {
+  const pickImage = async () => {
+    try {
+      const permission =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (!permission.granted) {
+        Alert.alert(
+          "Permission required",
+          "Allow photo library access to select a profile picture."
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (result.canceled || !result.assets?.length) return;
+
+      const asset = result.assets[0];
+
+      setProfile((current) => ({
+        ...current,
+        profileImage: asset.uri,
+        _image: {
+          uri: asset.uri,
+          name: asset.fileName || "profile.jpg",
+          type: asset.mimeType || "image/jpeg",
+        },
+      }));
+    } catch {
+      Alert.alert("Image", "Unable to select a profile picture.");
+    }
+  };
+
+  const pickResume = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: [
+          "application/pdf",
+          "application/msword",
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        ],
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
+
+      if (result.canceled || !result.assets?.length) return;
+
+      const asset = result.assets[0];
+
+      setProfile((current) => ({
+        ...current,
+        resume: asset.name,
+        _resume: {
+          uri: asset.uri,
+          name: asset.name || "resume.pdf",
+          type: asset.mimeType || "application/pdf",
+        },
+      }));
+    } catch {
+      Alert.alert("Resume", "Unable to select a resume.");
+    }
+  };
+
+  const appendUpload = async (formData, fieldName, upload, fallbackName) => {
+    if (!upload) return;
+
+    if (Platform.OS === "web") {
+      let file = upload;
+
+      if (upload.uri) {
+        const response = await fetch(upload.uri);
+
+        if (!response.ok) {
+          throw new Error(`Unable to read ${fallbackName}.`);
+        }
+
+        const blob = await response.blob();
+
+        file = new File(
+          [blob],
+          upload.name || fallbackName,
+          {
+            type: upload.type || blob.type || "application/octet-stream",
+          }
+        );
+      }
+
+      formData.append(fieldName, file);
+    } else {
+      formData.append(fieldName, {
+        uri: upload.uri,
+        name: upload.name || fallbackName,
+        type: upload.type || "application/octet-stream",
+      });
+    }
+  };
+
+  const saveProfile = async () => {
+    if (busy) return;
+
     setBusy(true);
 
     try {
-      const fd = new FormData();
+      const formData = new FormData();
 
       [
         "name",
@@ -113,174 +220,93 @@ export default function CandidateProfile() {const { mode: __themeMode } = useThe
         "experience",
         "linkedin",
         "portfolio",
-      ].forEach((k) => {
-        fd.append(k, p[k] || "");
+      ].forEach((key) => {
+        formData.append(key, profile[key] || "");
       });
 
-      fd.append(
+      formData.append(
         "skills",
-        Array.isArray(p.skills)
-          ? p.skills.join(", ")
-          : p.skills || ""
+        Array.isArray(profile.skills)
+          ? profile.skills.join(", ")
+          : profile.skills || ""
       );
 
-      // Profile image
-      if (p._image) {
-        let imageUpload = p._image;
-        if (Platform.OS === "web" && imageUpload.uri) {
-          const imageBlob = await fetch(imageUpload.uri).then((response) => response.blob());
-          imageUpload = new File([imageBlob], imageUpload.name || "profile.jpg", {
-            type: imageUpload.type || imageBlob.type || "image/jpeg",
-          });
-        }
-        fd.append("profileImage", imageUpload);
-      }
+      await appendUpload(
+        formData,
+        "profileImage",
+        profile._image,
+        "profile.jpg"
+      );
 
-      // Resume - Expo returns a URI descriptor on native and a Blob-backed
-      // asset on web. Convert the web URI into a real File before appending
-      // it so the multipart request contains a filename and MIME type.
-      if (p._resume) {
-        let resumeUpload = p._resume;
-        if (Platform.OS === "web" && resumeUpload.uri) {
-          const resumeBlob = await fetch(resumeUpload.uri).then((response) => response.blob());
-          resumeUpload = new File([resumeBlob], resumeUpload.name || "resume.pdf", {
-            type: resumeUpload.type || resumeBlob.type || "application/pdf",
-          });
-        }
-        fd.append("resume", resumeUpload);
-      }
+      await appendUpload(
+        formData,
+        "resume",
+        profile._resume,
+        "resume.pdf"
+      );
 
-      const response = await api.put("/profile/me", fd);
+      const response = await api.put("/profile/me", formData);
 
-      /*
-       * If backend returns updated profile,
-       * immediately update screen with it.
-       */
       if (response.data?.profile) {
-        setP(response.data.profile);
+        setProfile((current) => ({
+          ...current,
+          ...response.data.profile,
+          _image: undefined,
+          _resume: undefined,
+        }));
       } else {
-        // Otherwise reload profile
         await loadProfile();
       }
 
+      Alert.alert("Profile", "Profile saved successfully.");
+    } catch (error) {
       Alert.alert(
         "Profile",
-        "Profile saved successfully."
-      );
-    } catch (e) {
-      Alert.alert(
-        "Profile",
-        apiError(e, "Unable to save profile.")
+        apiError(error, "Unable to save your profile.")
       );
     } finally {
       setBusy(false);
     }
   };
 
-  const pickImage = async () => {
-    try {
-      const permission =
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-      if (!permission.granted) {
-        Alert.alert(
-          "Permission required",
-          "Please allow photo library access to select a profile picture."
-        );
-        return;
-      }
-
-      const r =
-        await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ["images"],
-          allowsEditing: true,
-          aspect: [1, 1],
-          quality: 0.8,
-        });
-
-      if (!r.canceled && r.assets?.length) {
-        const a = r.assets[0];
-
-        const imageFile = {
-          uri: a.uri,
-          name: a.fileName || "profile.jpg",
-          type: a.mimeType || "image/jpeg",
-        };
-
-        setP((x) => ({
-          ...x,
-
-          // Immediately show selected image
-          profileImage: a.uri,
-
-          // Keep actual file for upload
-          _image: imageFile,
-        }));
-      }
-    } catch (e) {
-      Alert.alert(
-        "Image",
-        "Unable to select profile picture."
-      );
-    }
-  };
-
-  const pickResume = async () => {
-    try {
-      const r =
-        await DocumentPicker.getDocumentAsync({
-          type: [
-            "application/pdf",
-            "application/msword",
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-          ],
-          copyToCacheDirectory: true,
-        });
-
-      if (!r.canceled && r.assets?.length) {
-        const a = r.assets[0];
-
-        setP((x) => ({
-          ...x,
-
-          resume: a.name,
-
-          _resume: {
-            uri: a.uri,
-            name: a.name || "resume.pdf",
-            type:
-              a.mimeType ||
-              "application/pdf",
-          },
-        }));
-      }
-    } catch (e) {
-      Alert.alert(
-        "Resume",
-        "Unable to select resume."
-      );
-    }
+  const handleRefresh = () => {
+    setRefreshing(true);
+    loadProfile();
   };
 
   if (loading) {
     return <Loader />;
   }
 
-  const imageUrl = getProfileImageUrl(
-    p.profileImage
-  );
+  const imageUrl = getProfileImageUrl(profile.profileImage);
 
   return (
     <ScrollView
       style={styles.screen}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[
+        styles.content,
+        {
+          paddingTop: 40,
+          paddingBottom: 32,
+        },
+      ]}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+          colors={[colors.primary]}
+          tintColor={colors.primary}
+        />
+      }
     >
       <Header
         title="My Profile"
         subtitle="Build a complete profile so recruiters can understand your experience."
       />
 
-      {/* PROFILE PHOTO */}
+      {/* Profile picture */}
       <View
         style={[
           styles.card,
@@ -296,7 +322,7 @@ export default function CandidateProfile() {const { mode: __themeMode } = useThe
             height: 120,
             borderRadius: 60,
             overflow: "hidden",
-            backgroundColor:colors.surface,
+            backgroundColor: colors.surface,
             borderWidth: 3,
             borderColor: colors.primary || "#2563eb",
             alignItems: "center",
@@ -306,10 +332,7 @@ export default function CandidateProfile() {const { mode: __themeMode } = useThe
           {imageUrl && !imageFailed ? (
             <Image
               source={{ uri: imageUrl }}
-              style={{
-                width: "100%",
-                height: "100%",
-              }}
+              style={{ width: "100%", height: "100%" }}
               resizeMode="cover"
               onError={() => setImageFailed(true)}
             />
@@ -321,7 +344,7 @@ export default function CandidateProfile() {const { mode: __themeMode } = useThe
                 color: "#64748b",
               }}
             >
-              {String(p.name || "U")
+              {String(profile.name || "U")
                 .charAt(0)
                 .toUpperCase()}
             </Text>
@@ -333,9 +356,10 @@ export default function CandidateProfile() {const { mode: __themeMode } = useThe
             marginTop: 12,
             fontSize: 18,
             fontWeight: "800",
+            color: colors.text,
           }}
         >
-          {p.name || "Your Profile"}
+          {profile.name || "Your Profile"}
         </Text>
 
         <TouchableOpacity
@@ -349,98 +373,81 @@ export default function CandidateProfile() {const { mode: __themeMode } = useThe
           ]}
           onPress={pickImage}
           disabled={busy}
+          activeOpacity={0.8}
         >
           <Text style={styles.outlineText}>
-            {imageUrl
+            {profile._image || profile.profileImage
               ? "Change Profile Picture"
               : "Add Profile Picture"}
           </Text>
         </TouchableOpacity>
       </View>
 
-      {/* RESUME */}
+      {/* Resume */}
       <View style={styles.card}>
         <Text
           style={{
             fontSize: 18,
             fontWeight: "800",
+            color: colors.text,
           }}
         >
           Profile & Resume
         </Text>
 
         <TouchableOpacity
-          style={[
-            styles.outline,
-            { marginTop: 12 },
-          ]}
+          style={[styles.outline, { marginTop: 12 }]}
           onPress={pickResume}
           disabled={busy}
+          activeOpacity={0.8}
         >
           <Text style={styles.outlineText}>
-            {p.resume
-              ? `Resume: ${String(p.resume)
-                  .split("/")
-                  .pop()}`
-              : "Upload Resume (PDF/DOC/DOCX)"}
+            {profile._resume?.name ||
+              (profile.resume
+                ? `Resume: ${String(profile.resume).split("/").pop()}`
+                : "Upload Resume (PDF/DOC/DOCX)")}
           </Text>
         </TouchableOpacity>
       </View>
 
-      {/* PROFILE FIELDS */}
-
+      {/* Profile fields */}
       <Field
         label="Name"
-        value={p.name || ""}
-        onChangeText={(v) =>
-          setP((x) => ({
-            ...x,
-            name: v,
-          }))
+        value={profile.name || ""}
+        onChangeText={(value) =>
+          setProfile((current) => ({ ...current, name: value }))
         }
       />
 
       <Field
         label="Phone"
-        value={p.phone || ""}
-        onChangeText={(v) =>
-          setP((x) => ({
-            ...x,
-            phone: v,
-          }))
+        value={profile.phone || ""}
+        onChangeText={(value) =>
+          setProfile((current) => ({ ...current, phone: value }))
         }
       />
 
       <Field
         label="Location"
-        value={p.location || ""}
-        onChangeText={(v) =>
-          setP((x) => ({
-            ...x,
-            location: v,
-          }))
+        value={profile.location || ""}
+        onChangeText={(value) =>
+          setProfile((current) => ({ ...current, location: value }))
         }
       />
 
       <Field
         label="Professional headline"
-        value={p.headline || ""}
-        onChangeText={(v) =>
-          setP((x) => ({
-            ...x,
-            headline: v,
-          }))
+        value={profile.headline || ""}
+        onChangeText={(value) =>
+          setProfile((current) => ({ ...current, headline: value }))
         }
       />
 
       <Field
         label="About / Bio"
-        value={p.bio || ""}
-        onChangeText={(v) =>
-          setP((x) => ({
-            ...x,
-            bio: v,
-          }))
+        value={profile.bio || ""}
+        onChangeText={(value) =>
+          setProfile((current) => ({ ...current, bio: value }))
         }
         multiline
       />
@@ -448,88 +455,76 @@ export default function CandidateProfile() {const { mode: __themeMode } = useThe
       <Field
         label="Skills (comma separated)"
         value={
-          Array.isArray(p.skills)
-            ? p.skills.join(", ")
-            : p.skills || ""
+          Array.isArray(profile.skills)
+            ? profile.skills.join(", ")
+            : profile.skills || ""
         }
-        onChangeText={(v) =>
-          setP((x) => ({
-            ...x,
-            skills: v,
-          }))
+        onChangeText={(value) =>
+          setProfile((current) => ({ ...current, skills: value }))
         }
       />
 
       <Field
         label="Education"
-        value={p.education || ""}
-        onChangeText={(v) =>
-          setP((x) => ({
-            ...x,
-            education: v,
-          }))
+        value={profile.education || ""}
+        onChangeText={(value) =>
+          setProfile((current) => ({ ...current, education: value }))
         }
         multiline
       />
 
       <Field
         label="Experience"
-        value={p.experience || ""}
-        onChangeText={(v) =>
-          setP((x) => ({
-            ...x,
-            experience: v,
-          }))
+        value={profile.experience || ""}
+        onChangeText={(value) =>
+          setProfile((current) => ({ ...current, experience: value }))
         }
         multiline
       />
 
       <Field
         label="LinkedIn"
-        value={p.linkedin || ""}
-        onChangeText={(v) =>
-          setP((x) => ({
-            ...x,
-            linkedin: v,
-          }))
+        value={profile.linkedin || ""}
+        onChangeText={(value) =>
+          setProfile((current) => ({ ...current, linkedin: value }))
         }
         autoCapitalize="none"
       />
 
       <Field
         label="Portfolio"
-        value={p.portfolio || ""}
-        onChangeText={(v) =>
-          setP((x) => ({
-            ...x,
-            portfolio: v,
-          }))
+        value={profile.portfolio || ""}
+        onChangeText={(value) =>
+          setProfile((current) => ({ ...current, portfolio: value }))
         }
         autoCapitalize="none"
       />
 
-      {/* SAVE */}
+      {/* Save profile */}
       <TouchableOpacity
-        style={styles.button}
-        onPress={save}
+        style={[styles.button, { marginTop: 8 }]}
+        onPress={saveProfile}
         disabled={busy}
+        activeOpacity={0.8}
       >
         <Text style={styles.buttonText}>
           {busy ? "Saving..." : "Save Profile"}
         </Text>
       </TouchableOpacity>
 
-      {/* LOGOUT */}
+      {/* Logout */}
       <TouchableOpacity
         style={[
           styles.outline,
           {
             borderColor: "#fecaca",
-            marginBottom: 30,
+            marginTop: 12,
+            marginBottom: 24,
           },
         ]}
         onPress={logout}
         disabled={busy}
+        activeOpacity={0.8}
       >
         <Text
           style={{
