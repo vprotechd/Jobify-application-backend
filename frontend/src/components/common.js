@@ -74,18 +74,9 @@ export function BackButton({ label = "Back" }) {
   </TouchableOpacity>;
 }
 
-export function ThemeToggle({ compact = false }) {
-  const { isDark, toggle } = useTheme();
-  return (
-    <TouchableOpacity
-      accessibilityRole="button"
-      accessibilityLabel={isDark ? "Switch to light mode" : "Switch to dark mode"}
-      onPress={toggle}
-      style={{ width: compact ? 40 : 46, height: compact ? 40 : 46, borderRadius: 13, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" }}
-    >
-      <Ionicons name={isDark ? "sunny-outline" : "moon-outline"} size={20} color={colors.text} />
-    </TouchableOpacity>
-  );
+export function ThemeToggle() {
+  // Theme controls are intentionally hidden; Jobify uses light mode only.
+  return null;
 }
 
 export function Header({ title, subtitle, eyebrow = "Jobify", showBack = true }) {

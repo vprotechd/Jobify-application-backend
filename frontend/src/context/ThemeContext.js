@@ -1,45 +1,35 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { getThemeMode, setThemeMode, subscribeTheme, toggleTheme } from "../theme/theme";
+import React, { createContext, useContext, useMemo } from "react";
+import { setThemeMode } from "../theme/theme";
 
 const ThemeContext = createContext(null);
 
 export function ThemeProvider({ children }) {
-  const [mode, setMode] = useState(getThemeMode());
+  // Force the single supported theme to light, regardless of old saved preferences.
+  setThemeMode("light");
+  const value = useMemo(
+    () => ({
+      mode: "light",
+      isDark: false,
+      setMode: async () => setThemeMode("light"),
+      toggle: async () => setThemeMode("light"),
+    }),
+    []
+  );
 
-  useEffect(() => {
-    let active = true;
-    AsyncStorage.getItem("jobify_theme").then((saved) => {
-      if (!active) return;
-      const next = saved === "dark" ? "dark" : "light";
-      setThemeMode(next);
-      setMode(next);
-    }).catch(() => {});
-    return () => { active = false; };
-  }, []);
-
-  useEffect(() => subscribeTheme(setMode), []);
-
-  const value = useMemo(() => ({
-    mode,
-    isDark: mode === "dark",
-    setMode: async (next) => {
-      const value = next === "dark" ? "dark" : "light";
-      setThemeMode(value);
-      setMode(value);
-      try { await AsyncStorage.setItem("jobify_theme", value); } catch {}
-    },
-    toggle: async () => {
-      const next = mode === "dark" ? "light" : "dark";
-      toggleTheme();
-      setMode(next);
-      try { await AsyncStorage.setItem("jobify_theme", next); } catch {}
-    },
-  }), [mode]);
-
-  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+  return (
+    <ThemeContext.Provider value={value}>
+      {children}
+    </ThemeContext.Provider>
+  );
 }
 
 export function useTheme() {
-  return useContext(ThemeContext) || { mode: "light", isDark: false, toggle: () => {} };
+  return (
+    useContext(ThemeContext) || {
+      mode: "light",
+      isDark: false,
+      setMode: async () => {},
+      toggle: async () => {},
+    }
+  );
 }
