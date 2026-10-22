@@ -10,8 +10,19 @@ const uploadIfLocal = async (value, folder, resourceType) => {
   if (!value || /^https?:\/\//i.test(String(value))) return null;
   const filename = path.basename(String(value).replace(/^\/+/, "").replace(/^uploads[\\/]/i, ""));
   const file = path.join(process.cwd(), "uploads", filename);
-  if (!fs.existsSync(file)) return null;
-  return uploadFileToCloudinary({ path: file, filename, originalname: filename, mimetype: resourceType === "image" ? "image/jpeg" : "application/pdf" }, { folder, resourceType });
+  if (!fs.existsSync(file)) {
+    throw new Error(`Local upload file is missing: ${filename}`);
+  }
+  const uploaded = await uploadFileToCloudinary(
+    {
+      path: file,
+      filename,
+      originalname: filename,
+      mimetype: resourceType === "image" ? "image/jpeg" : "application/pdf",
+    },
+    { folder, resourceType, removeLocalFile: false }
+  );
+  return { uploaded, file };
 };
 
 async function main() {
@@ -20,21 +31,40 @@ async function main() {
   const users = await User.find({}).select("_id role profileImage profileImagePublicId resume resumePublicId");
   for (const user of users) {
     let changed = false;
+    const uploadedFiles = [];
     if (user.profileImage && !/^https?:\/\//i.test(user.profileImage)) {
-      const uploaded = await uploadIfLocal(user.profileImage, user.role === "recruiter" ? "jobify/recruiter-profiles" : "jobify/profile-images", "image");
-      if (uploaded) { user.profileImage = uploaded.secure_url; user.profileImagePublicId = uploaded.public_id; changed = true; }
+      const result = await uploadIfLocal(user.profileImage, user.role === "recruiter" ? "jobify/recruiter-profiles" : "jobify/profile-images", "image");
+      if (result) {
+        user.profileImage = result.uploaded.secure_url;
+        user.profileImagePublicId = result.uploaded.public_id;
+        uploadedFiles.push(result.file);
+        changed = true;
+      }
     }
     if (user.resume && !/^https?:\/\//i.test(user.resume)) {
-      const uploaded = await uploadIfLocal(user.resume, "jobify/resumes", "raw");
-      if (uploaded) { user.resume = uploaded.secure_url; user.resumePublicId = uploaded.public_id; changed = true; }
+      const result = await uploadIfLocal(user.resume, "jobify/resumes", "raw");
+      if (result) {
+        user.resume = result.uploaded.secure_url;
+        user.resumePublicId = result.uploaded.public_id;
+        uploadedFiles.push(result.file);
+        changed = true;
+      }
     }
-    if (changed) await user.save();
+    if (changed) {
+      await user.save();
+      for (const file of uploadedFiles) fs.unlinkSync(file);
+    }
   }
   const companies = await Company.find({}).select("_id logo logoPublicId");
   for (const company of companies) {
     if (company.logo && !/^https?:\/\//i.test(company.logo)) {
-      const uploaded = await uploadIfLocal(company.logo, "jobify/company-logos", "image");
-      if (uploaded) { company.logo = uploaded.secure_url; company.logoPublicId = uploaded.public_id; await company.save(); }
+      const result = await uploadIfLocal(company.logo, "jobify/company-logos", "image");
+      if (result) {
+        company.logo = result.uploaded.secure_url;
+        company.logoPublicId = result.uploaded.public_id;
+        await company.save();
+        fs.unlinkSync(result.file);
+      }
     }
   }
   console.log("Cloudinary migration complete.");

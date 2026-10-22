@@ -22,7 +22,12 @@ export const isCloudinaryConfigured = () => Boolean(
   String(process.env.CLOUDINARY_API_SECRET || "").trim()
 );
 
-export async function uploadFileToCloudinary(file, { folder, resourceType = "auto", type = "upload" } = {}) {
+export async function uploadFileToCloudinary(file, {
+  folder,
+  resourceType = "auto",
+  type = "upload",
+  removeLocalFile = true,
+} = {}) {
   ensureConfigured();
   if (!file?.path) throw new Error("Upload file is missing.");
   const result = await cloudinary.uploader.upload(file.path, {
@@ -33,7 +38,9 @@ export async function uploadFileToCloudinary(file, { folder, resourceType = "aut
     unique_filename: true,
     overwrite: false,
   });
-  try { fs.unlinkSync(file.path); } catch {}
+  if (removeLocalFile) {
+    try { fs.unlinkSync(file.path); } catch {}
+  }
   return result;
 }
 
