@@ -279,11 +279,16 @@ export const updateRecruiterProfile = async (req, res) => {
         profileImage: publicFileUrl(req, saved.profileImage || ""),
       },
     });
-  } catch (error) {
-    console.error("Update recruiter profile error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Unable to update recruiter profile.",
-    });
-  }
+ } catch (error) {
+  console.error("Update recruiter profile error:", {
+    message: error.message,
+    name: error.name,
+    stack: error.stack,
+  });
+
+  return res.status(500).json({
+    success: false,
+    message: "Unable to update recruiter profile.",
+  });
+}
 };

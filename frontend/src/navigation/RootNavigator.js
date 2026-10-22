@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
@@ -48,6 +48,7 @@ import AdminDashboard from "../screens/AdminDashboard";
 import AdminResource from "../screens/AdminResource";
 import AdminMenu from "../screens/AdminMenu";
 import AdminTool from "../screens/AdminTool";
+import SplashScreen from "../screens/SplashScreen";
 
 const Stack = createNativeStackNavigator();
 const Tabs = createBottomTabNavigator();
@@ -398,13 +399,18 @@ tabBarStyle: {
 
 export default function RootNavigator() {
   const { user, loading } = useAuth();
+  const [showSplash, setShowSplash] = useState(true);
 
   if (loading) {
     return null;
   }
 
+  if (showSplash) {
+    return <SplashScreen onGetStarted={() => setShowSplash(false)} />;
+  }
+
   return (
-    <Stack.Navigator screenOptions={opts}>
+    <Stack.Navigator screenOptions={opts} initialRouteName={user ? undefined : "Login"}>
       {/* ================= PUBLIC ================= */}
 
       {!user ? (

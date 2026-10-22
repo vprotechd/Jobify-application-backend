@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import {
   Alert,
   Image,
+  Platform,
   ScrollView,
   Text,
   TouchableOpacity,
@@ -67,50 +68,85 @@ export default function RecruiterProfile({ navigation }) {
     }));
   };
 
-  const save = async () => {
-    setBusy(true);
+  
+const save = async () => {
+  if (busy) return;
 
-    try {
-      const formData = new FormData();
+  setBusy(true);
 
-      [
-        "name",
-        "company",
-        "designation",
-        "phone",
-        "location",
-        "website",
-        "bio",
-        "linkedin",
-        "portfolio",
-      ].forEach((key) => {
-        formData.append(key, profile[key] || "");
-      });
+  try {
+    const formData = new FormData();
 
-      if (profile._image) {
-        formData.append("profileImage", profile._image);
+    [
+      "name",
+      "company",
+      "designation",
+      "phone",
+      "location",
+      "website",
+      "bio",
+      "linkedin",
+      "portfolio",
+    ].forEach((key) => {
+      formData.append(key, profile[key] ?? "");
+    });
+
+    if (profile._image?.uri) {
+      const image = profile._image;
+
+      if (Platform.OS === "web") {
+        const response = await fetch(image.uri);
+        const blob = await response.blob();
+
+        formData.append(
+          "profileImage",
+          blob,
+          image.name || "profile.jpg"
+        );
+      } else {
+        formData.append("profileImage", {
+          uri: image.uri,
+          name: image.name || "profile.jpg",
+          type: image.type || "image/jpeg",
+        });
       }
-
-      const response = await api.put(
-        "/recruiter/profile",
-        formData
-      );
-
-      setProfile(response.data.profile || profile);
-
-      Alert.alert(
-        "Profile",
-        "Profile saved successfully."
-      );
-    } catch (error) {
-      Alert.alert(
-        "Profile",
-        apiError(error, "Unable to save profile.")
-      );
-    } finally {
-      setBusy(false);
     }
-  };
+
+    // Let the HTTP client set the multipart boundary automatically.
+    const response = await api.put(
+      "/recruiter/profile",
+      formData
+    );
+
+    const savedProfile =
+      response.data?.profile ||
+      response.data?.recruiter;
+
+    if (savedProfile) {
+      setProfile((current) => ({
+        ...current,
+        ...savedProfile,
+        _image: undefined,
+      }));
+    }
+
+    Alert.alert("Profile", "Profile saved successfully.");
+  } catch (error) {
+    console.error(
+      "Recruiter profile update failed:",
+      error.response?.status,
+      error.response?.data || error.message
+    );
+
+    Alert.alert(
+      "Profile update failed",
+      apiError(error, "Unable to save profile. Please try again.")
+    );
+  } finally {
+    setBusy(false);
+  }
+};
+
 
   const pickImage = async () => {
     try {

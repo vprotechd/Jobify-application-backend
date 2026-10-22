@@ -85,6 +85,7 @@ export default function CandidateProfile() {
           parsed.protocol = "https:";
         }
 
+        parsed.searchParams.set("_profile_refresh", String(Date.now()));
         return parsed.toString();
       } catch {
         return image;
@@ -124,6 +125,7 @@ export default function CandidateProfile() {
 
       const asset = result.assets[0];
 
+      setImageFailed(false);
       setProfile((current) => ({
         ...current,
         profileImage: asset.uri,
@@ -248,6 +250,7 @@ export default function CandidateProfile() {
       const response = await api.put("/profile/me", formData);
 
       if (response.data?.profile) {
+        setImageFailed(false);
         setProfile((current) => ({
           ...current,
           ...response.data.profile,
