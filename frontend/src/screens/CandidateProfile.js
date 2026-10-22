@@ -210,44 +210,47 @@ export default function CandidateProfile() {
     setBusy(true);
 
     try {
-      const formData = new FormData();
-
-      [
-        "name",
-        "phone",
-        "location",
-        "headline",
-        "bio",
-        "education",
-        "experience",
-        "linkedin",
-        "portfolio",
-      ].forEach((key) => {
-        formData.append(key, profile[key] || "");
-      });
-
-      formData.append(
-        "skills",
-        Array.isArray(profile.skills)
+      const profileData = {
+        name: profile.name || "",
+        phone: profile.phone || "",
+        location: profile.location || "",
+        headline: profile.headline || "",
+        bio: profile.bio || "",
+        education: profile.education || "",
+        experience: profile.experience || "",
+        linkedin: profile.linkedin || "",
+        portfolio: profile.portfolio || "",
+        skills: Array.isArray(profile.skills)
           ? profile.skills.join(", ")
-          : profile.skills || ""
-      );
+          : profile.skills || "",
+      };
+      let payload = profileData;
 
-      await appendUpload(
-        formData,
-        "profileImage",
-        profile._image,
-        "profile.jpg"
-      );
+      if (profile._image || profile._resume) {
+        const formData = new FormData();
 
-      await appendUpload(
-        formData,
-        "resume",
-        profile._resume,
-        "resume.pdf"
-      );
+        Object.entries(profileData).forEach(([key, value]) => {
+          formData.append(key, value);
+        });
 
-      const response = await api.put("/profile/me", formData);
+        await appendUpload(
+          formData,
+          "profileImage",
+          profile._image,
+          "profile.jpg"
+        );
+
+        await appendUpload(
+          formData,
+          "resume",
+          profile._resume,
+          "resume.pdf"
+        );
+
+        payload = formData;
+      }
+
+      const response = await api.put("/profile/me", payload);
 
       if (response.data?.profile) {
         setImageFailed(false);
