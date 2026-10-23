@@ -54,8 +54,20 @@ export function AuthProvider({ children }) {
     return data;
   };
 
+  // Merge fresh profile fields (name, profileImage, skills ...) into the signed-in
+  // user and persist them, so the session does not keep showing stale data.
+  const updateUser = (patch) => {
+    if (!patch || typeof patch !== "object") return;
+    setUser((current) => {
+      if (!current) return current;
+      const next = { ...current, ...patch };
+      AsyncStorage.setItem(USER_KEY, JSON.stringify(next)).catch(() => {});
+      return next;
+    });
+  };
+
   const logout = async () => { await clearStored(); setUser(null); };
   const clearSession = logout;
-  return <AuthContext.Provider value={{ user, loading, isAuthenticated: Boolean(user), login, googleLogin, logout, clearSession }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, loading, isAuthenticated: Boolean(user), login, googleLogin, logout, clearSession, updateUser }}>{children}</AuthContext.Provider>;
 }
 export function useAuth() { const value = useContext(AuthContext); if (!value) throw new Error("useAuth must be used inside AuthProvider"); return value; }

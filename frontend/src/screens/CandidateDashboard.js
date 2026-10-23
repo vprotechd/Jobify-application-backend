@@ -1,7 +1,9 @@
 
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
+  ActivityIndicator,
   Image,
+  RefreshControl,
   ScrollView,
   StatusBar,
   Text,
@@ -10,6 +12,8 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
+import api, { apiError } from "../services/api";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { colors } from "../theme/theme";
@@ -17,28 +21,59 @@ import { styles, ThemeToggle } from "../components/common";
 
 const filters = ["For You", "Remote", "Full-time", "UI/UX"];
 
-const recommendedJobs = [
-  {
-    id: "1",
-    title: "Product Designer",
-    company: "Google",
-    location: "Bengaluru, India",
-    type: "Full-time",
-    workplace: "Remote",
-    salary: "₹18–28 LPA",
-    logo: "google",
-  },
-  {
-    id: "2",
-    title: "UI/UX Designer",
-    company: "Microsoft",
-    location: "Noida, India",
-    type: "Full-time",
-    workplace: "Hybrid",
-    salary: "₹15–22 LPA",
-    logo: "microsoft",
-  },
-];
+const titleCase = (value) =>
+  String(value || "")
+    .replace(/[-_]+/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+
+const formatSalary = (job) => {
+  const money = (value) => `₹${Number(value).toLocaleString("en-IN")}`;
+  if (job.salaryMin != null && job.salaryMax != null) {
+    return `${money(job.salaryMin)} - ${money(job.salaryMax)}`;
+  }
+  if (job.salaryMin != null) return `From ${money(job.salaryMin)}`;
+  if (job.salaryMax != null) return `Up to ${money(job.salaryMax)}`;
+  return "";
+};
+
+function JobLogo({ company }) {
+  const [failed, setFailed] = useState(false);
+  const name = company?.name || "J";
+
+  if (company?.logo && !failed) {
+    return (
+      <Image
+        source={{ uri: company.logo }}
+        onError={() => setFailed(true)}
+        style={{ width: 43, height: 43, borderRadius: 10 }}
+        resizeMode="contain"
+      />
+    );
+  }
+
+  return (
+    <View
+      style={{
+        width: 43,
+        height: 43,
+        borderRadius: 10,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: colors.softPrimary,
+      }}
+    >
+      <Text
+        style={{
+          fontSize: 20,
+          fontWeight: "900",
+          color: colors.primary,
+        }}
+      >
+        {String(name).charAt(0).toUpperCase()}
+      </Text>
+    </View>
+  );
+}
 
 const categories = [
   { title: "Software Development", icon: "code-slash-outline" },
@@ -58,6 +93,11 @@ export default function Home({ navigation }) {
   const [keyword, setKeyword] = useState("");
   const [activeFilter, setActiveFilter] = useState("For You");
   const [savedJobs, setSavedJobs] = useState([]);
+  const [recommended, setRecommended] = useState([]);
+  const [hasSkills, setHasSkills] = useState(null); // null until the first response
+  const [recLoading, setRecLoading] = useState(true);
+  const [recError, setRecError] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
 
   const primary = colors.primary;
   const muted = colors.muted;
@@ -88,26 +128,79 @@ export default function Home({ navigation }) {
     });
   };
 
-  const toggleSaved = (job) => {
+  // Real recommendations: ranked by the candidate's saved skills on the server.
+  // Re-run every time the dashboard gains focus, so changes to the profile
+  // skills or to the job listings show up without restarting the app.
+  const loadRecommendations = useCallback(async () => {
+    if (user?.role !== "jobseeker") {
+      setRecLoading(false);
+      return;
+    }
+
+    try {
+      const [jobsResponse, favoritesResponse] = await Promise.all([
+        api.get("/jobs/recommended", { params: { limit: 10 } }),
+        api.get("/favorites").catch(() => null),
+      ]);
+
+      setRecommended(jobsResponse.data?.jobs || []);
+      setHasSkills(jobsResponse.data?.hasSkills !== false);
+      setRecError("");
+
+      if (favoritesResponse?.data?.favorites) {
+        setSavedJobs(
+          favoritesResponse.data.favorites.map((job) => String(job._id))
+        );
+      }
+    } catch (error) {
+      setRecError(apiError(error, "Unable to load recommended jobs."));
+    } finally {
+      setRecLoading(false);
+      setRefreshing(false);
+    }
+  }, [user?.role]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadRecommendations();
+    }, [loadRecommendations])
+  );
+
+  const toggleSaved = async (job) => {
+    const id = String(job._id);
+    const wasSaved = savedJobs.includes(id);
+
+    // Optimistic update, rolled back if the server rejects it.
     setSavedJobs((previous) =>
-      previous.includes(job.id)
-        ? previous.filter((id) => id !== job.id)
-        : [...previous, job.id]
+      wasSaved ? previous.filter((item) => item !== id) : [...previous, id]
     );
+
+    try {
+      if (wasSaved) await api.delete(`/favorites/${id}`);
+      else await api.post(`/favorites/${id}`);
+    } catch {
+      setSavedJobs((previous) =>
+        wasSaved ? [...previous, id] : previous.filter((item) => item !== id)
+      );
+    }
   };
 
-  const filteredJobs = recommendedJobs.filter((job) => {
+  const openJob = (job) => {
+    navigation.navigate("JobDetails", { id: job._id, job });
+  };
+
+  const filteredJobs = recommended.filter((job) => {
     if (activeFilter === "Remote") {
-      return job.workplace === "Remote";
+      return job.workMode === "remote";
     }
 
     if (activeFilter === "Full-time") {
-      return job.type === "Full-time";
+      return job.jobType === "full-time";
     }
 
     if (activeFilter === "UI/UX") {
       return /designer|design|ui|ux/i.test(
-        `${job.title} ${job.company}`
+        `${job.title} ${(job.skills || []).join(" ")}`
       );
     }
 
@@ -132,57 +225,6 @@ export default function Home({ navigation }) {
     fontSize: 12,
   };
 
-  const renderCompanyLogo = (job) => {
-    if (job.logo === "google") {
-      return (
-        <View
-          style={{
-            width: 43,
-            height: 43,
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Text
-            style={{
-              fontSize: 30,
-              fontWeight: "900",
-              color: "#4285F4",
-            }}
-          >
-            G
-          </Text>
-        </View>
-      );
-    }
-
-    return (
-      <View
-        style={{
-          width: 43,
-          height: 43,
-          flexDirection: "row",
-          flexWrap: "wrap",
-          gap: 2,
-          padding: 3,
-        }}
-      >
-        {["#F25022", "#7FBA00", "#00A4EF", "#FFB900"].map(
-          (color, index) => (
-            <View
-              key={index}
-              style={{
-                width: 16,
-                height: 16,
-                backgroundColor: color,
-              }}
-            />
-          )
-        )}
-      </View>
-    );
-  };
-
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <StatusBar
@@ -198,6 +240,17 @@ export default function Home({ navigation }) {
         ]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => {
+              setRefreshing(true);
+              loadRecommendations();
+            }}
+            colors={[primary]}
+            tintColor={primary}
+          />
+        }
       >
         {/* Header */}
         <View
@@ -384,7 +437,7 @@ export default function Home({ navigation }) {
             marginBottom: 11,
           }}
         >
-          <Text style={headingStyle}>Recommended for You</Text>
+          <Text style={headingStyle}>Recommended Jobs for You</Text>
 
           <TouchableOpacity onPress={() => searchJobs()}>
             <Text
@@ -399,95 +452,170 @@ export default function Home({ navigation }) {
           </TouchableOpacity>
         </View>
 
-        {filteredJobs.map((job) => (
-          <TouchableOpacity
-            key={job.id}
-            activeOpacity={0.9}
-            onPress={() =>
-              searchJobs({
-                keyword: job.title,
-                company: job.company,
-              })
-            }
-            style={{
-              ...cardStyle,
-              flexDirection: "row",
-              alignItems: "flex-start",
-              padding: 12,
-              marginBottom: 10,
-            }}
-          >
-            {renderCompanyLogo(job)}
-
-            <View
+        {recLoading ? (
+          <View style={{ ...cardStyle, alignItems: "center", padding: 24, marginBottom: 15 }}>
+            <ActivityIndicator size="small" color={primary} />
+            <Text style={[smallText, { marginTop: 8 }]}>
+              Finding jobs that match your skills...
+            </Text>
+          </View>
+        ) : recError ? (
+          <View style={{ ...cardStyle, alignItems: "center", padding: 24, marginBottom: 15 }}>
+            <Ionicons name="cloud-offline-outline" size={28} color={muted} />
+            <Text
+              style={{ color: textColor, fontWeight: "700", marginTop: 8, textAlign: "center" }}
+            >
+              {recError}
+            </Text>
+            <TouchableOpacity
+              onPress={() => {
+                setRecLoading(true);
+                loadRecommendations();
+              }}
+              style={{ marginTop: 10 }}
+            >
+              <Text style={{ color: primary, fontWeight: "800", fontSize: 13 }}>
+                Try again
+              </Text>
+            </TouchableOpacity>
+          </View>
+        ) : hasSkills === false ? (
+          <View style={{ ...cardStyle, alignItems: "center", padding: 24, marginBottom: 15 }}>
+            <Ionicons name="sparkles-outline" size={28} color={primary} />
+            <Text
+              style={{ color: textColor, fontWeight: "800", marginTop: 8, textAlign: "center" }}
+            >
+              Complete your profile to get recommendations
+            </Text>
+            <Text
+              style={{ color: muted, fontSize: 12, marginTop: 5, textAlign: "center", lineHeight: 18 }}
+            >
+              Add your skills and we will show jobs that match them.
+            </Text>
+            <TouchableOpacity
+              onPress={() => navigation.navigate("Profile")}
               style={{
-                flex: 1,
-                marginLeft: 10,
-                paddingTop: 2,
+                marginTop: 12,
+                backgroundColor: primary,
+                borderRadius: 10,
+                paddingHorizontal: 16,
+                paddingVertical: 10,
               }}
             >
-              <Text
-                numberOfLines={1}
-                style={{
-                  color: textColor,
-                  fontSize: 13,
-                  fontWeight: "800",
-                  marginBottom: 4,
-                }}
-              >
-                {job.title}
+              <Text style={{ color: "#FFFFFF", fontWeight: "800", fontSize: 13 }}>
+                Add your skills
               </Text>
-
-              <Text
-                style={{
-                  color: textColor,
-                  fontSize: 11,
-                  fontWeight: "600",
-                  marginBottom: 3,
-                }}
-              >
-                {job.company} · {job.location}
-              </Text>
-
-              <Text style={[smallText, { marginBottom: 5 }]}>
-                {job.type} · {job.workplace}
-              </Text>
-
-              <Text
-                style={{
-                  color: textColor,
-                  fontSize: 12,
-                  fontWeight: "800",
-                }}
-              >
-                {job.salary}
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              onPress={() => toggleSaved(job)}
-              accessibilityLabel={
-                savedJobs.includes(job.id)
-                  ? "Remove saved job"
-                  : "Save job"
-              }
-              hitSlop={8}
-              style={{ padding: 4 }}
-            >
-              <Ionicons
-                name={
-                  savedJobs.includes(job.id)
-                    ? "bookmark"
-                    : "bookmark-outline"
-                }
-                size={20}
-                color={textColor}
-              />
             </TouchableOpacity>
-          </TouchableOpacity>
-        ))}
+          </View>
+        ) : null}
 
-        {filteredJobs.length === 0 && (
+        {!recLoading && !recError && hasSkills
+          ? filteredJobs.map((job) => {
+              const salary = formatSalary(job);
+              const saved = savedJobs.includes(String(job._id));
+
+              return (
+                <TouchableOpacity
+                  key={String(job._id)}
+                  activeOpacity={0.9}
+                  onPress={() => openJob(job)}
+                  style={{
+                    ...cardStyle,
+                    flexDirection: "row",
+                    alignItems: "flex-start",
+                    padding: 12,
+                    marginBottom: 10,
+                  }}
+                >
+                  <JobLogo company={job.company} />
+
+                  <View
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      marginLeft: 10,
+                      paddingTop: 2,
+                    }}
+                  >
+                    <Text
+                      numberOfLines={1}
+                      style={{
+                        color: textColor,
+                        fontSize: 13,
+                        fontWeight: "800",
+                        marginBottom: 4,
+                      }}
+                    >
+                      {job.title}
+                    </Text>
+
+                    <Text
+                      numberOfLines={1}
+                      style={{
+                        color: textColor,
+                        fontSize: 11,
+                        fontWeight: "600",
+                        marginBottom: 3,
+                      }}
+                    >
+                      {job.company?.name || "Company"}
+                      {job.location ? ` · ${job.location}` : ""}
+                    </Text>
+
+                    <Text style={[smallText, { marginBottom: salary ? 5 : 6 }]}>
+                      {titleCase(job.jobType)} · {titleCase(job.workMode)}
+                    </Text>
+
+                    {salary ? (
+                      <Text
+                        style={{
+                          color: textColor,
+                          fontSize: 12,
+                          fontWeight: "800",
+                          marginBottom: 6,
+                        }}
+                      >
+                        {salary}
+                      </Text>
+                    ) : null}
+
+                    {job.matchReason ? (
+                      <View style={{ flexDirection: "row", alignItems: "center" }}>
+                        <Ionicons name="checkmark-circle" size={14} color={primary} />
+                        <Text
+                          numberOfLines={2}
+                          style={{
+                            flex: 1,
+                            marginLeft: 5,
+                            color: primary,
+                            fontSize: 11,
+                            fontWeight: "700",
+                          }}
+                        >
+                          {job.matchReason}
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
+
+                  <TouchableOpacity
+                    onPress={() => toggleSaved(job)}
+                    accessibilityLabel={saved ? "Remove saved job" : "Save job"}
+                    hitSlop={8}
+                    style={{ padding: 4 }}
+                  >
+                    <Ionicons
+                      name={saved ? "bookmark" : "bookmark-outline"}
+                      size={20}
+                      color={textColor}
+                    />
+                  </TouchableOpacity>
+                </TouchableOpacity>
+              );
+            })
+          : null}
+
+        {!recLoading && !recError && hasSkills && recommended.length === 0 && (
           <View
             style={{
               ...cardStyle,
@@ -496,19 +624,16 @@ export default function Home({ navigation }) {
               marginBottom: 15,
             }}
           >
-            <Ionicons
-              name="search-outline"
-              size={28}
-              color={muted}
-            />
+            <Ionicons name="search-outline" size={28} color={muted} />
             <Text
               style={{
                 color: textColor,
                 fontWeight: "700",
                 marginTop: 8,
+                textAlign: "center",
               }}
             >
-              No recommendations for this filter
+              No matching jobs right now
             </Text>
             <Text
               style={{
@@ -518,10 +643,46 @@ export default function Home({ navigation }) {
                 textAlign: "center",
               }}
             >
-              Try another filter or explore all jobs.
+              New matches appear as jobs are posted. You can also explore all jobs.
             </Text>
           </View>
         )}
+
+        {!recLoading &&
+          !recError &&
+          hasSkills &&
+          recommended.length > 0 &&
+          filteredJobs.length === 0 && (
+            <View
+              style={{
+                ...cardStyle,
+                alignItems: "center",
+                padding: 24,
+                marginBottom: 15,
+              }}
+            >
+              <Ionicons name="search-outline" size={28} color={muted} />
+              <Text
+                style={{
+                  color: textColor,
+                  fontWeight: "700",
+                  marginTop: 8,
+                }}
+              >
+                No recommendations for this filter
+              </Text>
+              <Text
+                style={{
+                  color: muted,
+                  fontSize: 12,
+                  marginTop: 5,
+                  textAlign: "center",
+                }}
+              >
+                Try another filter or explore all jobs.
+              </Text>
+            </View>
+          )}
 
         {/* Explore jobs */}
         <View style={{ marginTop: 15, marginBottom: 24 }}>

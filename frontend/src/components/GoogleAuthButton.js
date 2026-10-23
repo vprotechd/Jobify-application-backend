@@ -180,26 +180,26 @@ export default function GoogleAuthButton({ role = "jobseeker" }) {
         opacity: !request || busy ? 0.65 : 1,
       }}
     >
-      {busy ? (
-        <ActivityIndicator size="small" color={colors.text} />
-      ) : (
-        <View
-          style={{
-            width: 28,
-            height: 28,
-            borderRadius: 14,
-            alignItems: "center",
-            justifyContent: "center",
-            marginRight: 10,
-          }}
-        >
-          <Ionicons
-            name="logo-google"
-            size={20}
-            color="#4285F4"
-          />
-        </View>
-      )}
+      {/* Google "G" on a white badge so it stays recognisable on any card colour. */}
+      <View
+        style={{
+          width: 28,
+          height: 28,
+          borderRadius: 14,
+          backgroundColor: "#FFFFFF",
+          borderWidth: 1,
+          borderColor: colors.border,
+          alignItems: "center",
+          justifyContent: "center",
+          marginRight: 10,
+        }}
+      >
+        {busy ? (
+          <ActivityIndicator size="small" color="#4285F4" />
+        ) : (
+          <Ionicons name="logo-google" size={17} color="#4285F4" />
+        )}
+      </View>
       <Text
         style={{
           color: colors.text,

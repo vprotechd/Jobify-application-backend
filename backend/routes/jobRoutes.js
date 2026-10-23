@@ -10,14 +10,17 @@ import {
   deleteJob,
   getPublicJobs,
   getPublicJobById,
+  getRecommendedJobs,
 } from "../controllers/jobController.js";
 
-import { protect } from "../middleware/authMiddleware.js";
+import { protect, authorize } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
 // Public job discovery
 router.get("/jobs", getPublicJobs);
+// Must be declared before "/jobs/:id" so "recommended" is not treated as an id.
+router.get("/jobs/recommended", protect, authorize("jobseeker"), getRecommendedJobs);
 router.get("/jobs/:id", getPublicJobById);
 
 

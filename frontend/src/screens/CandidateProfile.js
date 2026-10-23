@@ -1,6 +1,7 @@
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Image,
   Platform,
@@ -27,13 +28,21 @@ import { colors } from "../theme/theme";
 
 export default function CandidateProfile() {
   const { mode: __themeMode } = useTheme();
-  const { logout } = useAuth();
+  const { logout, updateUser } = useAuth();
 
   const [profile, setProfile] = useState({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
+  const [notice, setNotice] = useState(null); // { type: "success" | "error", text }
+  const [imageVersion, setImageVersion] = useState(() => Date.now());
+
+  // Rules mirrored from the server (backend/middleware/upload.js) so users get
+  // instant feedback instead of waiting for a failed upload.
+  const MAX_FILE_BYTES = 5 * 1024 * 1024;
+  const IMAGE_MIME = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+  const RESUME_EXT = [".pdf", ".doc", ".docx"];
 
   const loadProfile = useCallback(async (showLoader = false) => {
     if (showLoader) setLoading(true);
@@ -44,6 +53,7 @@ export default function CandidateProfile() {
       );
 
       setProfile(response.data?.profile || {});
+      setImageVersion(Date.now());
     } catch (error) {
       Alert.alert(
         "Profile",
@@ -63,7 +73,7 @@ export default function CandidateProfile() {
     setImageFailed(false);
   }, [profile.profileImage]);
 
-  const getProfileImageUrl = (image) => {
+  const getProfileImageUrl = (image, version) => {
     if (!image || typeof image !== "string") return null;
 
     if (
@@ -85,7 +95,9 @@ export default function CandidateProfile() {
           parsed.protocol = "https:";
         }
 
-        parsed.searchParams.set("_profile_refresh", String(Date.now()));
+        // The version only changes after a load/save, so the picture is not
+        // re-downloaded (and does not flicker) while the user types.
+        parsed.searchParams.set("_profile_refresh", String(version));
         return parsed.toString();
       } catch {
         return image;
@@ -124,7 +136,19 @@ export default function CandidateProfile() {
       if (result.canceled || !result.assets?.length) return;
 
       const asset = result.assets[0];
+      const mime = String(asset.mimeType || "image/jpeg").toLowerCase();
 
+      if (!IMAGE_MIME.includes(mime)) {
+        setNotice({ type: "error", text: "Profile picture must be a JPG, PNG or WEBP image." });
+        return;
+      }
+
+      if (asset.fileSize && asset.fileSize > MAX_FILE_BYTES) {
+        setNotice({ type: "error", text: "Profile picture must be smaller than 5 MB." });
+        return;
+      }
+
+      setNotice(null);
       setImageFailed(false);
       setProfile((current) => ({
         ...current,
@@ -155,7 +179,19 @@ export default function CandidateProfile() {
       if (result.canceled || !result.assets?.length) return;
 
       const asset = result.assets[0];
+      const lowerName = String(asset.name || "").toLowerCase();
 
+      if (!RESUME_EXT.some((ext) => lowerName.endsWith(ext))) {
+        setNotice({ type: "error", text: "Resume must be a PDF, DOC or DOCX file." });
+        return;
+      }
+
+      if (asset.size && asset.size > MAX_FILE_BYTES) {
+        setNotice({ type: "error", text: "Resume must be smaller than 5 MB." });
+        return;
+      }
+
+      setNotice(null);
       setProfile((current) => ({
         ...current,
         resume: asset.name,
@@ -207,7 +243,15 @@ export default function CandidateProfile() {
   const saveProfile = async () => {
     if (busy) return;
 
+    if (!String(profile.name || "").trim()) {
+      setNotice({ type: "error", text: "Name cannot be empty." });
+      return;
+    }
+
     setBusy(true);
+    setNotice(null);
+
+    const hasFiles = Boolean(profile._image || profile._resume);
 
     try {
       const profileData = {
@@ -226,7 +270,7 @@ export default function CandidateProfile() {
       };
       let payload = profileData;
 
-      if (profile._image || profile._resume) {
+      if (hasFiles) {
         const formData = new FormData();
 
         Object.entries(profileData).forEach(([key, value]) => {
@@ -250,28 +294,109 @@ export default function CandidateProfile() {
         payload = formData;
       }
 
-      const response = await api.put("/profile/me", payload);
+      // File uploads (and a cold-starting server) can take longer than the
+      // default 25s request timeout.
+      const response = await api.put(
+        "/profile/me",
+        payload,
+        hasFiles ? { timeout: 120000 } : undefined
+      );
 
-      if (response.data?.profile) {
+      const saved = response.data?.profile;
+
+      if (saved) {
         setImageFailed(false);
+        setImageVersion(Date.now());
         setProfile((current) => ({
           ...current,
-          ...response.data.profile,
+          ...saved,
           _image: undefined,
           _resume: undefined,
         }));
+        // Keep the signed-in session in step with what was just saved.
+        updateUser({
+          name: saved.name,
+          profileImage: saved.profileImage,
+          skills: saved.skills,
+          headline: saved.headline,
+        });
       } else {
         await loadProfile();
       }
 
-      Alert.alert("Profile", "Profile saved successfully.");
+      setNotice({
+        type: "success",
+        text: hasFiles
+          ? "Profile and files saved successfully."
+          : "Profile saved successfully.",
+      });
     } catch (error) {
-      Alert.alert(
-        "Profile",
-        apiError(error, "Unable to save your profile.")
-      );
+      const data = error?.response?.data;
+      const message = apiError(error, "Unable to save your profile.");
+
+      // The server saves the text fields first. If only an upload failed it
+      // returns the saved profile so nothing the user typed is lost.
+      if (data?.partial && data?.profile) {
+        const failedImage = /profile picture/i.test(message);
+        const failedResume = /resume/i.test(message);
+
+        setImageVersion(Date.now());
+        setProfile((current) => ({
+          ...current,
+          ...data.profile,
+          ...(failedImage
+            ? { profileImage: current.profileImage }
+            : { _image: undefined }),
+          ...(failedResume
+            ? { resume: current.resume }
+            : { _resume: undefined }),
+        }));
+        updateUser({
+          name: data.profile.name,
+          profileImage: data.profile.profileImage,
+          skills: data.profile.skills,
+          headline: data.profile.headline,
+        });
+      }
+
+      setNotice({ type: "error", text: message });
     } finally {
       setBusy(false);
+    }
+  };
+
+  const downloadResume = async () => {
+    if (Platform.OS !== "web" || !profile.resume) return;
+
+    try {
+      const key = String(profile.resume).split("/").pop();
+      const response = await api.get(`/files/resume/${key}`, {
+        responseType: "blob",
+      });
+      const blob =
+        response.data instanceof Blob
+          ? response.data
+          : new Blob([response.data]);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = profile.resumeName || "resume.pdf";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      let message = apiError(error, "Unable to download your resume.");
+
+      // With responseType "blob" the JSON error body arrives as a Blob.
+      try {
+        const body = await error?.response?.data?.text?.();
+        if (body) message = JSON.parse(body).message || message;
+      } catch {
+        // keep the fallback message
+      }
+
+      setNotice({ type: "error", text: message });
     }
   };
 
@@ -284,7 +409,8 @@ export default function CandidateProfile() {
     return <Loader />;
   }
 
-  const imageUrl = getProfileImageUrl(profile.profileImage);
+  const imageUrl = getProfileImageUrl(profile.profileImage, imageVersion);
+  const hasPendingFiles = Boolean(profile._image || profile._resume);
 
   return (
     <ScrollView
@@ -410,10 +536,30 @@ export default function CandidateProfile() {
           <Text style={styles.outlineText}>
             {profile._resume?.name ||
               (profile.resume
-                ? `Resume: ${String(profile.resume).split("/").pop()}`
+                ? `Resume: ${
+                    profile.resumeName ||
+                    String(profile.resume).split("/").pop()
+                  }`
                 : "Upload Resume (PDF/DOC/DOCX)")}
           </Text>
         </TouchableOpacity>
+
+        {profile._resume ? (
+          <Text style={[styles.muted, { marginTop: 8 }]}>
+            Selected. Tap Save Profile to upload it.
+          </Text>
+        ) : null}
+
+        {profile.resume && !profile._resume && Platform.OS === "web" ? (
+          <TouchableOpacity
+            style={[styles.outline, { marginTop: 10 }]}
+            onPress={downloadResume}
+            disabled={busy}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.outlineText}>Download current resume</Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
 
       {/* Profile fields */}
@@ -513,10 +659,41 @@ export default function CandidateProfile() {
         disabled={busy}
         activeOpacity={0.8}
       >
-        <Text style={styles.buttonText}>
-          {busy ? "Saving..." : "Save Profile"}
-        </Text>
+        {busy ? (
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center" }}>
+            <ActivityIndicator size="small" color="#fff" />
+            <Text style={[styles.buttonText, { marginLeft: 8 }]}>
+              {hasPendingFiles ? "Uploading & saving..." : "Saving..."}
+            </Text>
+          </View>
+        ) : (
+          <Text style={styles.buttonText}>Save Profile</Text>
+        )}
       </TouchableOpacity>
+
+      {notice ? (
+        <View
+          accessibilityRole="alert"
+          style={{
+            marginTop: 12,
+            padding: 12,
+            borderRadius: 12,
+            borderWidth: 1,
+            borderColor: notice.type === "success" ? "#86efac" : "#fecaca",
+            backgroundColor: notice.type === "success" ? "#f0fdf4" : "#fef2f2",
+          }}
+        >
+          <Text
+            style={{
+              color: notice.type === "success" ? "#166534" : "#991b1b",
+              fontWeight: "700",
+              lineHeight: 20,
+            }}
+          >
+            {notice.text}
+          </Text>
+        </View>
+      ) : null}
 
       {/* Logout */}
       <TouchableOpacity

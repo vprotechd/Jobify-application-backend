@@ -17,25 +17,69 @@ export const servePublicImage = async (req, res) => {
   } catch { return res.status(404).json({ success: false, message: "Image not found." }); }
 };
 
+const escapeRegex = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const CONTENT_TYPES = {
+  ".pdf": "application/pdf",
+  ".doc": "application/msword",
+  ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+};
+
+// "KRITIKA-BHARTI-1788159984691-b3775e7378.pdf" -> "KRITIKA-BHARTI.pdf"
+const downloadName = (key) => {
+  const ext = path.extname(key);
+  const base = path.basename(key, ext).replace(/-\d{13}-[a-f0-9]{10}$/i, "").replace(/-[a-f0-9]{10}$/i, "");
+  return `${base || "resume"}${ext}`;
+};
+
 export const servePrivateResume = async (req, res) => {
   try {
     const filename = clean(req.params.filename);
-    const candidate = await User.findOne({ resume: filename, role: "jobseeker" }).select("_id resume").lean();
+    if (!filename) return res.status(404).json({ success: false, message: "Resume not found." });
+
+    // Local files are stored by name; Cloudinary resumes are stored as a URL
+    // whose last path segment is the unique file name.
+    let candidate = await User.findOne({ resume: filename, role: "jobseeker" }).select("_id resume").lean();
+    if (!candidate) {
+      candidate = await User.findOne({ resume: { $regex: `/${escapeRegex(filename)}$` }, role: "jobseeker" })
+        .select("_id resume")
+        .lean();
+    }
     if (!candidate) return res.status(404).json({ success: false, message: "Resume not found." });
+
     const requester = req.user;
     const isOwner = requester?.role === "jobseeker" && String(requester._id) === String(candidate._id);
     const isAdmin = requester?.role === "admin";
     const unlocked = requester?.role === "recruiter" ? await CvAccess.exists({ recruiter: requester._id, candidate: candidate._id }) : false;
     if (!isOwner && !isAdmin && !unlocked) return res.status(403).json({ success: false, message: "You are not authorized to access this resume." });
+
+    const ext = path.extname(filename).toLowerCase();
+    const attachment = `attachment; filename="${downloadName(filename)}"`;
+
     if (/^https?:\/\//i.test(String(candidate.resume))) {
       const parsed = new URL(String(candidate.resume));
       if (!/(^|\.)res\.cloudinary\.com$/i.test(parsed.hostname)) return res.status(400).json({ success: false, message: "Invalid resume storage URL." });
-      const remote = await axios.get(String(candidate.resume), { responseType: "stream", timeout: 30000 });
-      res.setHeader("Content-Type", remote.headers["content-type"] || "application/octet-stream");
+      let remote;
+      try {
+        remote = await axios.get(String(candidate.resume), { responseType: "stream", timeout: 30000 });
+      } catch (error) {
+        const status = error.response?.status;
+        console.error("Resume storage fetch failed:", status || error.message);
+        return res.status(502).json({
+          success: false,
+          message: status
+            ? `The file storage service refused to deliver this resume (HTTP ${status}). Please re-upload the resume; if it keeps happening, ask the administrator to check the Cloudinary delivery settings.`
+            : "Unable to reach the file storage service. Please try again.",
+        });
+      }
+      res.setHeader("Content-Type", CONTENT_TYPES[ext] || remote.headers["content-type"] || "application/octet-stream");
+      res.setHeader("Content-Disposition", attachment);
       return remote.data.pipe(res);
     }
+
     const full = filePath(filename);
-    if (!fs.existsSync(full)) return res.status(404).json({ success: false, message: "Resume file is no longer available." });
+    if (!fs.existsSync(full)) return res.status(404).json({ success: false, message: "Resume file is no longer available. Please upload it again." });
+    res.setHeader("Content-Disposition", attachment);
     return res.sendFile(full);
   } catch (error) {
     console.error("Private resume access error:", error);

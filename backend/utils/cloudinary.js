@@ -27,17 +27,29 @@ export async function uploadFileToCloudinary(file, {
   resourceType = "auto",
   type = "upload",
   removeLocalFile = true,
+  publicId,
 } = {}) {
   ensureConfigured();
   if (!file?.path) throw new Error("Upload file is missing.");
-  const result = await cloudinary.uploader.upload(file.path, {
-    folder: folder || "jobify",
-    resource_type: resourceType,
-    type,
-    use_filename: false,
-    unique_filename: true,
-    overwrite: false,
-  });
+  // When an explicit publicId is given (it may already contain the folder path
+  // and a file extension, which raw/PDF assets need) it is used as-is.
+  const result = await cloudinary.uploader
+    .upload(file.path, {
+      ...(publicId ? { public_id: publicId } : { folder: folder || "jobify" }),
+      resource_type: resourceType,
+      type,
+      use_filename: false,
+      unique_filename: !publicId,
+      overwrite: false,
+    })
+    .catch((error) => {
+      // Cloudinary rejects with a plain object ({ message, http_code }); turn it
+      // into a real Error so callers always get a readable message.
+      const reason = error?.message || error?.error?.message || "Cloudinary upload failed.";
+      const wrapped = new Error(reason);
+      wrapped.http_code = error?.http_code || error?.error?.http_code;
+      throw wrapped;
+    });
   if (removeLocalFile) {
     try { fs.unlinkSync(file.path); } catch {}
   }

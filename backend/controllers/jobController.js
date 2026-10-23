@@ -4,6 +4,7 @@ import Company from "../models/Company.js";
 import { createNotification } from "../utils/createNotification.js";
 import User from "../models/User.js";
 import Application from "../models/Application.js";
+import { rankJobs, prepareCandidate } from "../utils/recommendations.js";
 
 // =====================================================
 // CREATE JOB
@@ -825,3 +826,75 @@ export const getPublicJobById = async (req, res) => {
     res.status(500).json({ success: false, message: "Unable to load job." });
   }
 };
+
+// =====================================================
+// RECOMMENDED JOBS (candidate, skills-based)
+// GET /api/jobs/recommended
+// =====================================================
+
+export const getRecommendedJobs = async (req, res) => {
+  try {
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 10, 1), 30);
+
+    // Always read the candidate's current saved profile so a skills update is
+    // reflected on the very next request.
+    const candidate = await User.findById(req.user._id).select("skills headline").lean();
+    if (!candidate) {
+      return res.status(404).json({ success: false, message: "Candidate not found." });
+    }
+
+    const profile = prepareCandidate(candidate);
+    if (!profile.skills.length) {
+      return res.json({
+        success: true,
+        hasSkills: false,
+        count: 0,
+        jobs: [],
+        message: "Add your skills to your profile to get personalised job recommendations.",
+      });
+    }
+
+    // Eligibility: same visibility as the public job list (active), plus the
+    // application rules (deadline not passed, not already applied).
+    const now = new Date();
+    const appliedJobIds = await Application.find({ candidate: req.user._id }).distinct("job");
+
+    const pool = await Job.find({
+      status: "active",
+      _id: { $nin: appliedJobIds },
+      $or: [
+        { applicationDeadline: null },
+        { applicationDeadline: { $exists: false } },
+        { applicationDeadline: { $gt: now } },
+      ],
+    })
+      .populate("company")
+      .populate("recruiter", "name email")
+      .sort({ createdAt: -1 })
+      .limit(1000)
+      .lean();
+
+    // Jobs whose company was removed or deactivated are not visible elsewhere.
+    const eligible = pool.filter((job) => job.company && job.company.isActive !== false);
+
+    const ranked = rankJobs(candidate, eligible, { limit });
+
+    return res.json({
+      success: true,
+      hasSkills: true,
+      count: ranked.length,
+      jobs: ranked.map(({ job, score, matchedSkills, relatedSkills, level, reason }) => ({
+        ...job,
+        matchScore: score,
+        matchLevel: level,
+        matchedSkills,
+        relatedSkills,
+        matchReason: reason,
+      })),
+    });
+  } catch (error) {
+    console.error("Get recommended jobs error:", error);
+    return res.status(500).json({ success: false, message: "Unable to load recommended jobs." });
+  }
+};
+
