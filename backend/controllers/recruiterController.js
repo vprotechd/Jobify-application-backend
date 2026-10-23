@@ -196,6 +196,7 @@ export const getRecruiterProfile = async (req, res) => {
 export const updateRecruiterProfile = async (req, res) => {
   try {
     const recruiterId = req.user?._id || req.user?.id;
+    const body = req.body || {};
 
     if (!recruiterId) {
       return res.status(401).json({
@@ -234,8 +235,8 @@ export const updateRecruiterProfile = async (req, res) => {
     ];
 
     for (const field of fields) {
-      if (req.body[field] !== undefined) {
-        recruiter[field] = String(req.body[field]).trim();
+      if (body[field] !== undefined) {
+        recruiter[field] = String(body[field]).trim();
       }
     }
 
@@ -285,6 +286,15 @@ export const updateRecruiterProfile = async (req, res) => {
     name: error.name,
     stack: error.stack,
   });
+
+  if (error.name === "ValidationError") {
+    return res.status(400).json({
+      success: false,
+      message: Object.values(error.errors)
+        .map((validationError) => validationError.message)
+        .join(" "),
+    });
+  }
 
   return res.status(500).json({
     success: false,

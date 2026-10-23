@@ -31,6 +31,7 @@ const upload = {
     const allowedFields = new Map(fieldDefinitions.map((f) => [f.name, f.maxCount || 1]));
     return async (req, res, next) => {
       try {
+        req.body = req.body || {};
         const contentType = req.headers["content-type"] || "";
         if (!contentType.toLowerCase().startsWith("multipart/form-data")) return next();
 
