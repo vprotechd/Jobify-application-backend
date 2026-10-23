@@ -265,22 +265,35 @@ const safeResumePublicId = (originalName) => {
 };
 
 // Stores one uploaded file and returns { value, publicId, local }.
+// Cloudinary is tried first. If it is unavailable or refuses the upload (for
+// example HTTP 403 from wrong/disabled credentials) the file is kept on the
+// server instead, so the profile picture / resume is still saved.
 const storeUpload = async (file, kind) => {
   if (!isCloudinaryConfigured()) {
     return { value: file.filename, publicId: "", local: true };
   }
-  const uploaded =
-    kind === "resume"
-      ? await uploadFileToCloudinary(file, {
-          resourceType: "raw",
-          type: "upload",
-          publicId: safeResumePublicId(file.originalname),
-        })
-      : await uploadFileToCloudinary(file, {
-          folder: "jobify/profile-images",
-          resourceType: "image",
-        });
-  return { value: uploaded.secure_url, publicId: uploaded.public_id, local: false };
+  try {
+    const uploaded =
+      kind === "resume"
+        ? await uploadFileToCloudinary(file, {
+            resourceType: "raw",
+            type: "upload",
+            publicId: safeResumePublicId(file.originalname),
+            removeLocalFile: false,
+          })
+        : await uploadFileToCloudinary(file, {
+            folder: "jobify/profile-images",
+            resourceType: "image",
+            removeLocalFile: false,
+          });
+    return { value: uploaded.secure_url, publicId: uploaded.public_id, local: false };
+  } catch (error) {
+    console.error(
+      `Cloudinary ${kind} upload failed (${error?.http_code || "no status"}): ${error.message}. Saving the file on the server instead.`
+    );
+    if (!file?.path || !fs.existsSync(file.path)) throw error;
+    return { value: file.filename, publicId: "", local: true };
+  }
 };
 
 export const updateMyProfile = async (req, res) => {

@@ -23,7 +23,7 @@ import { colors } from "../theme/theme";
 
 export default function RecruiterProfile({ navigation }) {
   const { mode: __themeMode } = useTheme();
-  const { logout } = useAuth();
+  const { logout, updateUser } = useAuth();
 
   const [profile, setProfile] = useState({});
   const [loading, setLoading] = useState(true);
@@ -128,6 +128,12 @@ const save = async () => {
         ...savedProfile,
         _image: undefined,
       }));
+
+      // Keep the signed-in session in step with the saved picture/name.
+      updateUser?.({
+        name: savedProfile.name,
+        profileImage: savedProfile.profileImage,
+      });
     }
 
     Alert.alert("Profile", "Profile saved successfully.");

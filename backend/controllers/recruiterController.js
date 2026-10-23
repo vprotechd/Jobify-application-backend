@@ -1,3 +1,4 @@
+import fs from "fs";
 import Job from "../models/Job.js";
 import Application from "../models/Application.js";
 import User from "../models/User.js";
@@ -251,14 +252,35 @@ export const updateRecruiterProfile = async (req, res) => {
     if (profileImage) {
       const oldImage = recruiter.profileImage;
       const oldPublicId = recruiter.profileImagePublicId;
+      let uploaded = null;
       if (isCloudinaryConfigured()) {
-        const uploaded = await uploadFileToCloudinary(profileImage, { folder: "jobify/recruiter-profiles", resourceType: "image" });
+        try {
+          uploaded = await uploadFileToCloudinary(profileImage, {
+            folder: "jobify/recruiter-profiles",
+            resourceType: "image",
+            removeLocalFile: false,
+          });
+        } catch (uploadError) {
+          // Cloudinary refused the upload (e.g. HTTP 403). Keep the image on the
+          // server instead of failing the whole profile update.
+          console.error(
+            `Cloudinary recruiter image upload failed (${uploadError?.http_code || "no status"}): ${uploadError.message}. Saving the image on the server instead.`
+          );
+        }
+      }
+      if (uploaded) {
         recruiter.profileImage = uploaded.secure_url;
         recruiter.profileImagePublicId = uploaded.public_id;
         if (oldPublicId) await deleteCloudinaryAsset(oldPublicId, "image", "upload");
+        try {
+          if (profileImage.path && fs.existsSync(profileImage.path)) fs.unlinkSync(profileImage.path);
+        } catch {
+          /* best effort */
+        }
       } else {
         recruiter.profileImage = profileImage.filename;
         recruiter.profileImagePublicId = "";
+        if (oldPublicId) await deleteCloudinaryAsset(oldPublicId, "image", "upload");
       }
     }
 
