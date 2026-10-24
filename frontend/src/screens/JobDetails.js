@@ -109,7 +109,21 @@ export default function JobDetails({ route, navigation }) {
 
   const apply = async () => {
     if (!user) {
-      return navigation.getParent()?.navigate("Login");
+      return Alert.alert(
+        "Registration required",
+        "Please register first to continue.",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Log in",
+            onPress: () => navigation.navigate("Login"),
+          },
+          {
+            text: "Register",
+            onPress: () => navigation.navigate("Register"),
+          },
+        ]
+      );
     }
 
     if (user.role !== "jobseeker") {

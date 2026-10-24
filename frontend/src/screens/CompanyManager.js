@@ -437,32 +437,6 @@ export default function CompanyManager() {
               </View>
             </View>
 
-            <View
-              style={{
-                alignSelf: "flex-start",
-                marginTop: 14,
-                paddingHorizontal: 11,
-                paddingVertical: 6,
-                borderRadius: 8,
-                backgroundColor: company.isVerified
-                  ? colors.success + "18"
-                  : colors.warning + "18",
-              }}
-            >
-              <Text
-                style={{
-                  color: company.isVerified
-                    ? colors.success
-                    : colors.warning,
-                  fontWeight: "800",
-                  fontSize: 12,
-                }}
-              >
-                {company.isVerified
-                  ? "✓ Verified"
-                  : "Verification pending"}
-              </Text>
-            </View>
 
             <View
               style={{

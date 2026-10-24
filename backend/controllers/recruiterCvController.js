@@ -87,7 +87,7 @@ export const unlockCandidateCv = async (req, res) => {
     if (!candidate.resume) return res.status(404).json({ success: false, message: "This candidate has not uploaded a resume." });
     const result = await unlockCandidate({ recruiterId: req.user._id, candidateId: candidate._id });
     const access = result.access.toObject ? result.access.toObject() : result.access;
-    return res.json({ success: true, charged: result.charged, source: result.source, candidate, access, cvAccess: await getCvAccessState(req.user._id) });
+    return res.json({ success: true, unlocked: true, charged: result.charged, source: result.source, candidate, access, cvAccess: await getCvAccessState(req.user._id) });
   } catch (error) {
     console.error("Unlock candidate CV error:", error);
     return res.status(error.status || 500).json({ success: false, message: error.message || "Unable to unlock candidate CV." });
@@ -113,8 +113,9 @@ export const downloadCandidateCv = async (req, res) => {
       if (!/(^|\.)res\.cloudinary\.com$/i.test(parsed.hostname)) return res.status(400).json({ success: false, message: "External resume URLs cannot be downloaded through Jobify." });
       const remote = await axios.get(filename, { responseType: "stream", timeout: 30000 });
       const safeName = String(candidate.name || "candidate").replace(/[^a-zA-Z0-9_-]+/g, "-") || "candidate";
+      const extension = path.extname(parsed.pathname) || ".pdf";
       res.setHeader("Content-Type", remote.headers["content-type"] || "application/octet-stream");
-      res.setHeader("Content-Disposition", `attachment; filename="${safeName}-resume.pdf"`);
+      res.setHeader("Content-Disposition", `attachment; filename="${safeName}-resume${extension}"`);
       return remote.data.pipe(res);
     }
     filename = path.basename(filename.replace(/^\/+/, "").replace(/^uploads[\\/]/i, ""));

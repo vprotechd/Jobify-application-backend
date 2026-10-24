@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import api, { apiError } from "../services/api";
+import downloadResume from "../services/downloadResume";
 import {
   Empty,
   Header,
@@ -138,6 +139,23 @@ export default function CandidateSearch() {
         "Contact",
         apiError(error, "Unable to retrieve contact details.")
       );
+    }
+  };
+
+  const downloadCandidateResume = async (candidate) => {
+    const id = candidate?._id;
+    if (!id || busy) return;
+
+    setBusy(`d:${id}`);
+    try {
+      await downloadResume(
+        `/recruiter/candidates/${id}/resume`,
+        `${candidate.name || "candidate"}-resume.pdf`
+      );
+    } catch (error) {
+      Alert.alert("Resume", apiError(error, "Unable to download this resume."));
+    } finally {
+      setBusy("");
     }
   };
 
@@ -497,6 +515,24 @@ export default function CandidateSearch() {
                 </TouchableOpacity>
               )}
             </View>
+
+            {candidate.cvUnlocked && (
+              <TouchableOpacity
+                style={[
+                  styles.outline,
+                  { marginTop: 10 },
+                ]}
+                onPress={() => downloadCandidateResume(candidate)}
+                disabled={Boolean(busy)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.outlineText}>
+                  {busy === `d:${candidate._id}`
+                    ? "Downloading..."
+                    : "Download Resume"}
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         ))
       )}
@@ -614,6 +650,22 @@ export default function CandidateSearch() {
               >
                 <Text style={styles.buttonText}>
                   Contact Candidate
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.outline,
+                  { marginTop: 10 },
+                ]}
+                onPress={() => downloadCandidateResume(selectedCandidate)}
+                disabled={Boolean(busy)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.outlineText}>
+                  {busy === `d:${selectedCandidate?._id}`
+                    ? "Downloading..."
+                    : "Download Resume"}
                 </Text>
               </TouchableOpacity>
             </>

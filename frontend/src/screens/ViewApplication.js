@@ -1,7 +1,8 @@
 import { useTheme } from "../context/ThemeContext";
 import React, { useEffect, useState } from "react";
-import { Alert, Platform, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import api, { apiError } from "../services/api";
+import downloadResumeFile from "../services/downloadResume";
 import { Header, Loader, styles } from "../components/common";
 import { colors } from "../theme/theme";
 
@@ -28,21 +29,19 @@ export default function ViewApplication({ route, navigation }) {const { mode: __
   const downloadResume = async () => {
     setDownloading(true);
     try {
-      const response = await api.get(
+      await downloadResumeFile(
         `/applications/recruiter/applications/${application._id}/resume/download`,
-        Platform.OS === "web" ? { responseType: "blob" } : undefined,
+        `${application.candidate?.name || "candidate"}-resume.pdf`
       );
 
-      if (Platform.OS === "web") {
-        const blob = response.data instanceof Blob ? response.data : new Blob([response.data]);
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = `${application.candidate?.name || "candidate"}-resume.pdf`;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        URL.revokeObjectURL(url);
+      // The CV is now unlocked for this recruiter - reload the application so
+      // the candidate's email, phone and other contact details appear.
+      try {
+        const refreshed = await api.get(`/applications/recruiter/applications/${application._id}`);
+        const fresh = refreshed.data.application || refreshed.data.data;
+        if (fresh) setApplication(fresh);
+      } catch {
+        // Download already succeeded; keep the current details on screen.
       }
 
       Alert.alert("Resume", "Resume access granted and download started.");
@@ -58,9 +57,6 @@ export default function ViewApplication({ route, navigation }) {const { mode: __
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      <TouchableOpacity onPress={() => navigation.goBack()}>
-        <Text style={{ color: colors.muted, fontWeight: "700", marginBottom: 18 }}>Back</Text>
-      </TouchableOpacity>
       <Header
         eyebrow="Recruiter"
         title={application.job?.title || "Application"}

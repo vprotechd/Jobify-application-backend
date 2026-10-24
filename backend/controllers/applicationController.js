@@ -526,8 +526,9 @@ export const downloadCandidateResume = async (req, res) => {
       if (!/(^|\.)res\.cloudinary\.com$/i.test(parsed.hostname)) return res.status(400).json({ success: false, message: "External resume URLs cannot be downloaded through Jobify." });
       const remote = await axios.get(filename, { responseType: "stream", timeout: 30000 });
       const safeName = String(candidate.name || "candidate").replace(/[^a-zA-Z0-9_-]+/g, "-") || "candidate";
+      const extension = path.extname(parsed.pathname) || ".pdf";
       res.setHeader("Content-Type", remote.headers["content-type"] || "application/octet-stream");
-      res.setHeader("Content-Disposition", `attachment; filename="${safeName}-resume.pdf"`);
+      res.setHeader("Content-Disposition", `attachment; filename="${safeName}-resume${extension}"`);
       return remote.data.pipe(res);
     }
     filename = path.basename(filename.replace(/^\/+/, "").replace(/^uploads[\\/]/i, ""));
