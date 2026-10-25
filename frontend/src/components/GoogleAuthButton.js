@@ -23,6 +23,10 @@ const androidClientId =
 const iosClientId =
   process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || "";
 
+  console.log("GOOGLE WEB CLIENT:", webClientId);
+console.log("GOOGLE ANDROID CLIENT:", androidClientId);
+console.log("GOOGLE IOS CLIENT:", iosClientId);
+
 function nativeGoogleRedirect(clientId) {
   if (!clientId) return undefined;
 
