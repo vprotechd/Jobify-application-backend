@@ -2,7 +2,12 @@
 import { v2 as cloudinary } from "cloudinary";
 import fs from "fs";
 
-// Check Cloudinary configuration and initialize the SDK.
+/*
+|--------------------------------------------------------------------------
+| CLOUDINARY CONFIGURATION
+|--------------------------------------------------------------------------
+*/
+
 function ensureConfigured() {
   const cloudName = String(
     process.env.CLOUDINARY_CLOUD_NAME || ""
@@ -18,7 +23,7 @@ function ensureConfigured() {
 
   if (!cloudName || !apiKey || !apiSecret) {
     throw new Error(
-      "Cloudinary is not configured. Add CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET to your server environment."
+      "Cloudinary is not configured. Add CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET to the server environment."
     );
   }
 
@@ -30,7 +35,12 @@ function ensureConfigured() {
   });
 }
 
-// Check whether the required environment variables are available.
+/*
+|--------------------------------------------------------------------------
+| CHECK CONFIGURATION
+|--------------------------------------------------------------------------
+*/
+
 export const isCloudinaryConfigured = () => {
   return Boolean(
     String(process.env.CLOUDINARY_CLOUD_NAME || "").trim() &&
@@ -39,7 +49,21 @@ export const isCloudinaryConfigured = () => {
   );
 };
 
-// Upload a local file to Cloudinary.
+/*
+|--------------------------------------------------------------------------
+| UPLOAD FILE
+|--------------------------------------------------------------------------
+|
+| Used for:
+| - Profile images
+| - Resumes
+|
+| Resume:
+|   resource_type = raw
+|   type = upload
+|
+*/
+
 export async function uploadFileToCloudinary(
   file,
   {
@@ -59,14 +83,22 @@ export async function uploadFileToCloudinary(
 
     const uploadOptions = {
       ...(publicId
-        ? { public_id: publicId }
-        : { folder: folder || "jobify" }),
+        ? {
+            public_id: publicId,
+          }
+        : {
+            folder: folder || "jobify",
+          }),
 
       resource_type: resourceType,
       type,
+
       use_filename: false,
       unique_filename: !publicId,
       overwrite: false,
+
+      // Important for raw files such as PDF/DOC/DOCX.
+      use_asset_folder: false,
     };
 
     const result = await cloudinary.uploader.upload(
@@ -76,13 +108,12 @@ export async function uploadFileToCloudinary(
 
     if (!result?.secure_url || !result?.public_id) {
       throw new Error(
-        "Cloudinary upload did not return the expected image URL and public ID."
+        "Cloudinary upload did not return the expected secure URL and public ID."
       );
     }
 
     return result;
   } catch (error) {
-    // Cloudinary may return an Error or a plain object.
     const details =
       error?.error ||
       error?.response?.data?.error ||
@@ -99,16 +130,18 @@ export async function uploadFileToCloudinary(
       details?.http_code ||
       error?.response?.status;
 
-    // Do not log API secrets or credentials.
     console.error("Cloudinary upload failed:", {
       message,
       http_code: statusCode || null,
       name: error?.name || "CloudinaryError",
       resourceType,
-      folder: folder || "jobify",
+      type,
+      folder: folder || null,
+      publicId: publicId || null,
     });
 
     const wrappedError = new Error(message);
+
     wrappedError.name = "CloudinaryUploadError";
 
     if (statusCode) {
@@ -117,7 +150,6 @@ export async function uploadFileToCloudinary(
 
     throw wrappedError;
   } finally {
-    // Clean up the temporary upload file on both success and failure.
     if (removeLocalFile && file?.path) {
       try {
         if (fs.existsSync(file.path)) {
@@ -133,14 +165,19 @@ export async function uploadFileToCloudinary(
   }
 }
 
-// Delete an existing Cloudinary asset.
+/*
+|--------------------------------------------------------------------------
+| DELETE CLOUDINARY ASSET
+|--------------------------------------------------------------------------
+*/
+
 export async function deleteCloudinaryAsset(
   publicId,
   resourceType = "image",
   type = "upload"
 ) {
   if (!publicId || !isCloudinaryConfigured()) {
-    return;
+    return null;
   }
 
   try {
@@ -156,6 +193,7 @@ export async function deleteCloudinaryAsset(
       console.error("Cloudinary asset deletion failed:", {
         publicId,
         resourceType,
+        type,
         result: result.result,
       });
     }
@@ -163,7 +201,8 @@ export async function deleteCloudinaryAsset(
     return result;
   } catch (error) {
     console.error("Cloudinary delete error:", {
-      message: error?.message || "Unable to delete Cloudinary asset.",
+      message:
+        error?.message || "Unable to delete Cloudinary asset.",
       http_code:
         error?.http_code ||
         error?.error?.http_code ||
@@ -171,14 +210,55 @@ export async function deleteCloudinaryAsset(
         null,
       publicId,
       resourceType,
+      type,
     });
 
-    // Keep deletion failures from crashing the profile update.
+    // Do not crash profile updates because cleanup failed.
     return null;
   }
 }
 
-// Generate a signed Cloudinary URL.
+/*
+|--------------------------------------------------------------------------
+| GET CLOUDINARY RESOURCE DETAILS
+|--------------------------------------------------------------------------
+|
+| This is useful for raw resumes.
+|
+*/
+
+export async function getCloudinaryResource(
+  publicId,
+  {
+    resourceType = "raw",
+    type = "upload",
+  } = {}
+) {
+  if (!publicId) {
+    throw new Error("Cloudinary public ID is required.");
+  }
+
+  ensureConfigured();
+
+  return cloudinary.api.resource(publicId, {
+    resource_type: resourceType,
+    type,
+  });
+}
+
+/*
+|--------------------------------------------------------------------------
+| GENERATE SIGNED CLOUDINARY URL
+|--------------------------------------------------------------------------
+|
+| Use this when the Cloudinary resource is protected.
+|
+| IMPORTANT:
+| The API secret stays on the backend.
+| Never generate this URL in React Native using the secret.
+|
+*/
+
 export function signedCloudinaryUrl(
   publicId,
   {
@@ -193,14 +273,109 @@ export function signedCloudinaryUrl(
 
   ensureConfigured();
 
-  return cloudinary.url(publicId, {
+  const options = {
     resource_type: resourceType,
     type,
+    secure: true,
+    sign_url: true,
+  };
+
+  if (download) {
+    options.flags = "attachment";
+  }
+
+  return cloudinary.url(publicId, options);
+}
+
+/*
+|--------------------------------------------------------------------------
+| GENERATE AUTHENTICATED RAW RESOURCE URL
+|--------------------------------------------------------------------------
+|
+| This is kept separate from signedCloudinaryUrl so the caller can
+| explicitly choose the correct delivery type.
+|
+*/
+
+export function getRawResumeUrl(publicId, download = false) {
+  if (!publicId || !isCloudinaryConfigured()) {
+    return "";
+  }
+
+  ensureConfigured();
+
+  return cloudinary.url(publicId, {
+    resource_type: "raw",
+    type: "upload",
     secure: true,
     sign_url: true,
     ...(download ? { flags: "attachment" } : {}),
   });
 }
 
-// Keep this export for existing files that import the Cloudinary SDK.
+/*
+|--------------------------------------------------------------------------
+| EXTRACT CLOUDINARY PUBLIC ID FROM URL
+|--------------------------------------------------------------------------
+|
+| Useful for old database records where only resume URL exists.
+|
+*/
+
+export function publicIdFromCloudinaryUrl(
+  url,
+  resourceType = "raw"
+) {
+  if (!url || typeof url !== "string") {
+    return "";
+  }
+
+  try {
+    const parsed = new URL(url);
+
+    const pathname = parsed.pathname.replace(/^\/+/, "");
+
+    const marker =
+      resourceType === "raw"
+        ? "/raw/"
+        : "/image/";
+
+    const markerIndex = pathname.indexOf(marker);
+
+    if (markerIndex === -1) {
+      return "";
+    }
+
+    const afterResource = pathname.substring(
+      markerIndex + marker.length
+    );
+
+    const uploadIndex = afterResource.indexOf("upload/");
+
+    if (uploadIndex === -1) {
+      return "";
+    }
+
+    let publicPath = afterResource.substring(
+      uploadIndex + "upload/".length
+    );
+
+    // Remove transformation/version portion where applicable.
+    publicPath = publicPath.replace(
+      /^v\d+\//,
+      ""
+    );
+
+    return decodeURIComponent(publicPath);
+  } catch {
+    return "";
+  }
+}
+
+/*
+|--------------------------------------------------------------------------
+| KEEP EXISTING EXPORT
+|--------------------------------------------------------------------------
+*/
+
 export { cloudinary };

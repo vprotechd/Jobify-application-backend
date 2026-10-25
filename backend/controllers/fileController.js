@@ -3,6 +3,7 @@ import axios from "axios";
 import path from "path";
 import User from "../models/User.js";
 import CvAccess from "../models/CvAccess.js";
+import { fetchCloudinaryResume } from "../utils/resumeDelivery.js";
 
 const clean = (filename) => path.basename(String(filename || "").replace(/^\/+/, "").replace(/^uploads[\\/]/i, ""));
 const filePath = (filename) => path.join(process.cwd(), "uploads", clean(filename));
@@ -39,10 +40,10 @@ export const servePrivateResume = async (req, res) => {
 
     // Local files are stored by name; Cloudinary resumes are stored as a URL
     // whose last path segment is the unique file name.
-    let candidate = await User.findOne({ resume: filename, role: "jobseeker" }).select("_id resume").lean();
+    let candidate = await User.findOne({ resume: filename, role: "jobseeker" }).select("_id resume resumePublicId").lean();
     if (!candidate) {
       candidate = await User.findOne({ resume: { $regex: `/${escapeRegex(filename)}$` }, role: "jobseeker" })
-        .select("_id resume")
+        .select("_id resume resumePublicId")
         .lean();
     }
     if (!candidate) return res.status(404).json({ success: false, message: "Resume not found." });
@@ -61,16 +62,10 @@ export const servePrivateResume = async (req, res) => {
       if (!/(^|\.)res\.cloudinary\.com$/i.test(parsed.hostname)) return res.status(400).json({ success: false, message: "Invalid resume storage URL." });
       let remote;
       try {
-        remote = await axios.get(String(candidate.resume), { responseType: "stream", timeout: 30000 });
+        remote = await fetchCloudinaryResume(String(candidate.resume), candidate.resumePublicId);
       } catch (error) {
-        const status = error.response?.status;
-        console.error("Resume storage fetch failed:", status || error.message);
-        return res.status(502).json({
-          success: false,
-          message: status
-            ? `The file storage service refused to deliver this resume (HTTP ${status}). Please re-upload the resume; if it keeps happening, ask the administrator to check the Cloudinary delivery settings.`
-            : "Unable to reach the file storage service. Please try again.",
-        });
+        console.error("Resume storage fetch failed:", error.message);
+        return res.status(502).json({ success: false, message: error.message });
       }
       res.setHeader("Content-Type", CONTENT_TYPES[ext] || remote.headers["content-type"] || "application/octet-stream");
       res.setHeader("Content-Disposition", attachment);

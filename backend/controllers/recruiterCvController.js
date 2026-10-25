@@ -4,6 +4,7 @@ import fs from "fs";
 import path from "path";
 import User from "../models/User.js";
 import CvAccess from "../models/CvAccess.js";
+import { fetchCloudinaryResume } from "../utils/resumeDelivery.js";
 import { getCvAccessState, unlockCandidate, getGlobalSettings } from "../services/cvAccessService.js";
 
 const safeCandidate = (candidate, req) => ({
@@ -100,7 +101,7 @@ export const downloadCandidateCv = async (req, res) => {
     if (settings.features?.cvDownload === false) return res.status(403).json({ success: false, message: "CV downloads are currently disabled by the administrator." });
     const { id } = req.params;
     if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ success: false, message: "Invalid candidate ID." });
-    const candidate = await User.findOne({ _id: id, role: "jobseeker", isActive: { $ne: false } }).select("_id name resume").lean();
+    const candidate = await User.findOne({ _id: id, role: "jobseeker", isActive: { $ne: false } }).select("_id name resume resumePublicId").lean();
     if (!candidate) return res.status(404).json({ success: false, message: "Candidate not found." });
     if (!candidate.resume) return res.status(404).json({ success: false, message: "This candidate has not uploaded a resume." });
     const result = await unlockCandidate({ recruiterId: req.user._id, candidateId: candidate._id });
@@ -111,7 +112,7 @@ export const downloadCandidateCv = async (req, res) => {
     if (/^https?:\/\//i.test(filename)) {
       const parsed = new URL(filename);
       if (!/(^|\.)res\.cloudinary\.com$/i.test(parsed.hostname)) return res.status(400).json({ success: false, message: "External resume URLs cannot be downloaded through Jobify." });
-      const remote = await axios.get(filename, { responseType: "stream", timeout: 30000 });
+      const remote = await fetchCloudinaryResume(filename, candidate.resumePublicId);
       const safeName = String(candidate.name || "candidate").replace(/[^a-zA-Z0-9_-]+/g, "-") || "candidate";
       const extension = path.extname(parsed.pathname) || ".pdf";
       res.setHeader("Content-Type", remote.headers["content-type"] || "application/octet-stream");
@@ -125,7 +126,8 @@ export const downloadCandidateCv = async (req, res) => {
     return res.download(filePath, `${safeName}-resume${path.extname(filename) || ".pdf"}`);
   } catch (error) {
     console.error("Download candidate CV error:", error);
-    return res.status(error.status || 500).json({ success: false, message: error.message || "Unable to download candidate CV." });
+    const status = [400, 402, 403, 404, 502].includes(error.status) ? error.status : 500;
+    return res.status(status).json({ success: false, message: error.message || "Unable to download candidate CV." });
   }
 };
 
