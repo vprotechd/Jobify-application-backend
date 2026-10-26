@@ -212,16 +212,17 @@ export default function Home({ navigation }) {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Header */}
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "space-between",
-            marginBottom: 22,
-            gap: 8,
-          }}
-        >
+       {/* Header */}
+<View
+  style={{
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 45,
+    marginBottom: 22,
+    gap: 8,
+  }}
+>
           <TouchableOpacity
             onPress={() => navigation.navigate("Home")}
             activeOpacity={0.8}
