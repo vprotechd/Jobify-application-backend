@@ -871,7 +871,7 @@ export default function Home({ navigation }) {
               " "
             )[0] ||
               "there"}{" "}
-            👋
+            
           </Text>
 
           <Text

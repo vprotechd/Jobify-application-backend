@@ -327,7 +327,7 @@ export default function Home({ navigation }) {
               color: textColor,
             }}
           >
-            Good Morning, {user?.name?.split(" ")[0] || "there"} 👋
+            Good Morning, {user?.name?.split(" ")[0] || "there"} 
           </Text>
 
           <Text

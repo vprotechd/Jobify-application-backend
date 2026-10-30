@@ -1,37 +1,143 @@
-import React from "react";
-import { Image, SafeAreaView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import React, { useEffect, useRef } from "react";
+import {
+  AccessibilityInfo,
+  Animated,
+  Easing,
+  Image,
+  SafeAreaView,
+  StatusBar,
+  StyleSheet,
+  View,
+} from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 
+const LOGO_SIZE = 120;
+const HOLD_MS = 1400; // how long the logo stays after it appears
+
 export default function SplashScreen({ onGetStarted }) {
+  const scale = useRef(new Animated.Value(0.7)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+  const ring1 = useRef(new Animated.Value(0)).current;
+  const ring2 = useRef(new Animated.Value(0)).current;
+  const exit = useRef(new Animated.Value(1)).current;
+
+  // Keep the latest callback without restarting the animation
+  const doneRef = useRef(onGetStarted);
+  doneRef.current = onGetStarted;
+
+  useEffect(() => {
+    let cancelled = false;
+    let rings;
+    let timer;
+
+    const finish = (delay) => {
+      timer = setTimeout(() => {
+        if (cancelled) return;
+        Animated.timing(exit, {
+          toValue: 0,
+          duration: 350,
+          easing: Easing.in(Easing.quad),
+          useNativeDriver: true,
+        }).start(() => {
+          if (!cancelled && doneRef.current) doneRef.current();
+        });
+      }, delay);
+    };
+
+    AccessibilityInfo.isReduceMotionEnabled().then((reduce) => {
+      if (cancelled) return;
+
+      // Reduced motion: logo simply appears, then moves on
+      if (reduce) {
+        opacity.setValue(1);
+        scale.setValue(1);
+        finish(1200);
+        return;
+      }
+
+      // 1. Logo fades and springs into place
+      Animated.parallel([
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: 500,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.spring(scale, {
+          toValue: 1,
+          friction: 6,
+          tension: 70,
+          useNativeDriver: true,
+        }),
+      ]).start();
+
+      // 2. Two soft rings ripple outward behind the logo
+      const ripple = (value, delay) =>
+        Animated.loop(
+          Animated.sequence([
+            Animated.delay(delay),
+            Animated.timing(value, {
+              toValue: 1,
+              duration: 1800,
+              easing: Easing.out(Easing.quad),
+              useNativeDriver: true,
+            }),
+            Animated.timing(value, {
+              toValue: 0,
+              duration: 0,
+              useNativeDriver: true,
+            }),
+          ])
+        );
+
+      rings = Animated.parallel([ripple(ring1, 500), ripple(ring2, 1300)]);
+      rings.start();
+
+      // 3. Hold, fade out, hand off
+      finish(HOLD_MS + 700);
+    });
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+      if (rings) rings.stop();
+    };
+  }, []);
+
+  const ringStyle = (value) => ({
+    opacity: value.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0.35, 0],
+    }),
+    transform: [
+      {
+        scale: value.interpolate({
+          inputRange: [0, 1],
+          outputRange: [1, 2.1],
+        }),
+      },
+    ],
+  });
+
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor="#F4F7FF" />
-      <LinearGradient colors={["#F4F7FF", "#FFFFFF", "#EEF4FF"]} style={styles.container}>
-        <View style={styles.topRow}>
-          <Image source={require("../../assets/jobify.png")} style={styles.logo} />
-          <Text style={styles.brand}>Jobify</Text>
-        </View>
+      <LinearGradient
+        colors={["#F4F7FF", "#FFFFFF", "#EEF4FF"]}
+        style={styles.container}
+      >
+        <Animated.View style={[styles.center, { opacity: exit }]}>
+          <View style={styles.stage}>
+            <Animated.View style={[styles.ring, ringStyle(ring1)]} />
+            <Animated.View style={[styles.ring, ringStyle(ring2)]} />
 
-        <View style={styles.hero}>
-          <Image source={require("../../assets/welcome.png")} style={styles.welcomeImage} resizeMode="contain" />
-          <Text style={styles.eyebrow}>YOUR CAREER, YOUR FUTURE</Text>
-          <Text style={styles.title}>Find work that{ '\n' }works for you.</Text>
-          <Text style={styles.subtitle}>Discover opportunities, connect with great companies, and take the next step in your career.</Text>
-        </View>
-
-        <View style={styles.bottom}>
-          <View style={styles.benefits}>
-            <View style={styles.benefit}><Ionicons name="search-outline" size={18} color="#1F5EFF" /><Text style={styles.benefitText}>Find jobs</Text></View>
-            <View style={styles.benefit}><Ionicons name="people-outline" size={18} color="#1F5EFF" /><Text style={styles.benefitText}>Meet employers</Text></View>
-            <View style={styles.benefit}><Ionicons name="trending-up-outline" size={18} color="#1F5EFF" /><Text style={styles.benefitText}>Grow your career</Text></View>
+            <Animated.Image
+              source={require("../../assets/jobify.png")}
+              style={[styles.logo, { opacity, transform: [{ scale }] }]}
+              accessibilityLabel="Jobify"
+            />
           </View>
-          <TouchableOpacity accessibilityRole="button" activeOpacity={0.85} style={styles.button} onPress={onGetStarted}>
-            <Text style={styles.buttonText}>Get Started</Text>
-            <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
-          </TouchableOpacity>
-          <Text style={styles.footer}>A better opportunity is one tap away.</Text>
-        </View>
+        </Animated.View>
       </LinearGradient>
     </SafeAreaView>
   );
@@ -39,30 +145,25 @@ export default function SplashScreen({ onGetStarted }) {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#F4F7FF" },
-  container: { flex: 1, paddingHorizontal: 26, paddingTop: 18, paddingBottom: 20 },
-  topRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10 },
-  logo: { width: 42, height: 42, borderRadius: 12 },
-  brand: { color: "#0B1736", fontSize: 25, fontWeight: "900", letterSpacing: -0.6 },
-  hero: { flex: 1, alignItems: "center", justifyContent: "center", paddingTop: 12 },
-  welcomeImage: { width: "100%", maxWidth: 360, height: 245, marginBottom: 18 },
-  artCircle: { width: 220, height: 205, alignItems: "center", justifyContent: "center", marginBottom: 25 },
-  artCard: { width: 148, height: 150, backgroundColor: "#FFFFFF", borderRadius: 24, alignItems: "center", padding: 18, borderWidth: 1, borderColor: "#E2EAFE", transform: [{ rotate: "-5deg" }], shadowColor: "#1F5EFF", shadowOpacity: 0.13, shadowRadius: 22, shadowOffset: { width: 0, height: 12 }, elevation: 5 },
-  iconCircle: { width: 66, height: 66, borderRadius: 22, backgroundColor: "#1F5EFF", alignItems: "center", justifyContent: "center", marginBottom: 13 },
-  lineLong: { width: 86, height: 7, borderRadius: 4, backgroundColor: "#DCE6FF", marginBottom: 6 },
-  lineShort: { width: 56, height: 6, borderRadius: 4, backgroundColor: "#EDF1FA" },
-  artFooter: { flexDirection: "row", alignItems: "center", alignSelf: "flex-start", marginTop: 11, gap: 6 },
-  dot: { width: 9, height: 9, borderRadius: 5, backgroundColor: "#23B26D" },
-  footerLine: { width: 40, height: 5, borderRadius: 4, backgroundColor: "#DCE6FF" },
-  floatingCheck: { position: "absolute", right: 24, top: 25, width: 43, height: 43, borderRadius: 15, backgroundColor: "#23B26D", alignItems: "center", justifyContent: "center", borderWidth: 4, borderColor: "#F4F7FF" },
-  floatingStar: { position: "absolute", left: 17, bottom: 26, width: 44, height: 44, borderRadius: 15, backgroundColor: "#FFF4D6", alignItems: "center", justifyContent: "center", borderWidth: 4, borderColor: "#F4F7FF" },
-  eyebrow: { color: "#1F5EFF", fontSize: 11, fontWeight: "800", letterSpacing: 2, marginBottom: 13, textAlign: "center" },
-  title: { color: "#0B1736", fontSize: 35, lineHeight: 42, fontWeight: "900", textAlign: "center", letterSpacing: -1.1 },
-  subtitle: { color: "#64748B", fontSize: 15, lineHeight: 23, textAlign: "center", marginTop: 14, maxWidth: 340 },
-  bottom: { width: "100%", maxWidth: 480, alignSelf: "center" },
-  benefits: { flexDirection: "row", justifyContent: "space-between", marginBottom: 20, paddingHorizontal: 2 },
-  benefit: { alignItems: "center", gap: 5, flex: 1 },
-  benefitText: { color: "#52617A", fontSize: 10, fontWeight: "700" },
-  button: { minHeight: 58, backgroundColor: "#1F5EFF", borderRadius: 17, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 12, shadowColor: "#1F5EFF", shadowOpacity: 0.25, shadowRadius: 12, shadowOffset: { width: 0, height: 7 }, elevation: 5 },
-  buttonText: { color: "#FFFFFF", fontSize: 16, fontWeight: "800" },
-  footer: { color: "#94A3B8", fontSize: 11, textAlign: "center", marginTop: 14 },
+  container: { flex: 1 },
+  center: { flex: 1, alignItems: "center", justifyContent: "center" },
+  stage: {
+    width: LOGO_SIZE,
+    height: LOGO_SIZE,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  logo: {
+    width: LOGO_SIZE,
+    height: LOGO_SIZE,
+    borderRadius: 30,
+  },
+  ring: {
+    position: "absolute",
+    width: LOGO_SIZE,
+    height: LOGO_SIZE,
+    borderRadius: 30,
+    borderWidth: 2,
+    borderColor: "#1F5EFF",
+  },
 });

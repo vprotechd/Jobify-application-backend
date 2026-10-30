@@ -52,20 +52,32 @@ export default function GoogleAuthButton({ role = "jobseeker" }) {
     return undefined;
   }, []);
 
-  const redirectUri = useMemo(() => {
-    if (Platform.OS === "web") {
-      // For browser testing this resolves from the current web origin/port.
-      return makeRedirectUri({ preferLocalhost: true });
-    }
+  // const redirectUri = useMemo(() => {
+  //   if (Platform.OS === "web") {
+  //     // For browser testing this resolves from the current web origin/port.
+  //     return makeRedirectUri({ preferLocalhost: true });
+  //   }
 
-    return (
-      nativeRedirect ||
-      makeRedirectUri({
-        scheme: "jobify",
-        path: "oauthredirect",
-      })
-    );
-  }, [nativeRedirect]);
+  //   return (
+  //     nativeRedirect ||
+  //     makeRedirectUri({
+  //       scheme: "jobify",
+  //       path: "oauthredirect",
+  //     })
+  //   );
+  // }, [nativeRedirect]);
+
+
+const redirectUri = useMemo(() => {
+  if (Platform.OS === "web") {
+    return makeRedirectUri({
+      preferLocalhost: true,
+    });
+  }
+
+  return nativeRedirect || "jobify:/oauthredirect";
+}, [nativeRedirect]);
+
 
   const [request, response, promptAsync] =
     Google.useIdTokenAuthRequest({
