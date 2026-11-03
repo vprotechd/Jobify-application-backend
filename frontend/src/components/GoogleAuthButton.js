@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Image,
   Platform,
   Text,
   TouchableOpacity,
@@ -9,7 +10,6 @@ import {
 import * as WebBrowser from "expo-web-browser";
 import * as Google from "expo-auth-session/providers/google";
 import { makeRedirectUri } from "expo-auth-session";
-import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../context/AuthContext";
 import { colors } from "../theme/theme";
 import { toast } from "../services/toast";
@@ -23,10 +23,6 @@ const androidClientId =
 const iosClientId =
   process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || "";
 
-  console.log("GOOGLE WEB CLIENT:", webClientId);
-console.log("GOOGLE ANDROID CLIENT:", androidClientId);
-console.log("GOOGLE IOS CLIENT:", iosClientId);
-
 function nativeGoogleRedirect(clientId) {
   if (!clientId) return undefined;
 
@@ -36,6 +32,24 @@ function nativeGoogleRedirect(clientId) {
   );
 
   return `com.googleusercontent.apps.${prefix}:/oauthredirect`;
+}
+
+/* ============================================================
+   ORIGINAL MULTICOLOUR GOOGLE "G" LOGO
+   Image file: put google-logo.png in your assets folder and
+   adjust the path below if your folders are different.
+============================================================ */
+
+const googleLogoImage = require("../../assets/google-logo.png");
+
+function GoogleLogo({ size = 18 }) {
+  return (
+    <Image
+      source={googleLogoImage}
+      style={{ width: size, height: size }}
+      resizeMode="contain"
+    />
+  );
 }
 
 export default function GoogleAuthButton({ role = "jobseeker" }) {
@@ -52,32 +66,16 @@ export default function GoogleAuthButton({ role = "jobseeker" }) {
     return undefined;
   }, []);
 
-  // const redirectUri = useMemo(() => {
-  //   if (Platform.OS === "web") {
-  //     // For browser testing this resolves from the current web origin/port.
-  //     return makeRedirectUri({ preferLocalhost: true });
-  //   }
+  const redirectUri = useMemo(() => {
+    if (Platform.OS === "web") {
+      // For browser testing this resolves from the current web origin/port.
+      return makeRedirectUri({
+        preferLocalhost: true,
+      });
+    }
 
-  //   return (
-  //     nativeRedirect ||
-  //     makeRedirectUri({
-  //       scheme: "jobify",
-  //       path: "oauthredirect",
-  //     })
-  //   );
-  // }, [nativeRedirect]);
-
-
-const redirectUri = useMemo(() => {
-  if (Platform.OS === "web") {
-    return makeRedirectUri({
-      preferLocalhost: true,
-    });
-  }
-
-  return nativeRedirect || "jobify:/oauthredirect";
-}, [nativeRedirect]);
-
+    return nativeRedirect || "jobify:/oauthredirect";
+  }, [nativeRedirect]);
 
   const [request, response, promptAsync] =
     Google.useIdTokenAuthRequest({
@@ -196,7 +194,7 @@ const redirectUri = useMemo(() => {
         opacity: !request || busy ? 0.65 : 1,
       }}
     >
-      {/* Google "G" on a white badge so it stays recognisable on any card colour. */}
+      {/* Original Google "G" on a white badge so it stays visible on any card colour. */}
       <View
         style={{
           width: 28,
@@ -213,7 +211,7 @@ const redirectUri = useMemo(() => {
         {busy ? (
           <ActivityIndicator size="small" color="#4285F4" />
         ) : (
-          <Ionicons name="logo-google" size={17} color="#4285F4" />
+          <GoogleLogo size={17} />
         )}
       </View>
       <Text
