@@ -364,6 +364,7 @@ export const login = async (req, res) => {
 // GOOGLE LOGIN
 // =====================================================
 
+
 const getGoogleClientIds = () =>
   [
     process.env.GOOGLE_WEB_CLIENT_ID,
@@ -385,14 +386,35 @@ export const googleLogin = async (req, res) => {
     const clientIds = getGoogleClientIds();
 
     if (!clientIds.length) {
-      console.error("Google authentication is not configured on the backend.");
+      console.error("Google authentication is not configured.");
       return res.status(500).json({
         success: false,
         message: "Google authentication is not configured on the server.",
       });
     }
 
+    // Diagnostic: inspect the token audience without logging the token.
+    let tokenPayload;
+
+    try {
+      const tokenParts = String(idToken).split(".");
+      if (tokenParts.length !== 3) throw new Error("Invalid JWT format");
+
+      tokenPayload = JSON.parse(
+        Buffer.from(tokenParts[1], "base64url").toString("utf8")
+      );
+    } catch {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid Google identity token.",
+      });
+    }
+
+    console.log("Google token audience:", tokenPayload.aud);
+    console.log("Backend allowed audiences:", clientIds);
+
     const client = new OAuth2Client();
+
     const ticket = await client.verifyIdToken({
       idToken: String(idToken),
       audience: clientIds,
@@ -415,8 +437,13 @@ export const googleLogin = async (req, res) => {
     }
 
     const normalizedEmail = String(payload.email).trim().toLowerCase();
-    const cleanName =
-      String(payload.name || payload.given_name || normalizedEmail.split("@")[0]).trim();
+
+    const cleanName = String(
+      payload.name ||
+      payload.given_name ||
+      normalizedEmail.split("@")[0]
+    ).trim();
+
     const safeRole = role === "recruiter" ? "recruiter" : "jobseeker";
 
     let user = await User.findOne({
@@ -427,8 +454,6 @@ export const googleLogin = async (req, res) => {
     });
 
     if (!user) {
-      // Local password is required by the existing schema. This random value
-      // is never exposed or used for Google users.
       const randomPassword = crypto.randomBytes(32).toString("hex");
 
       user = new User({
@@ -449,12 +474,12 @@ export const googleLogin = async (req, res) => {
         });
       }
 
-      // Link an existing Jobify account with the verified Google identity.
       user.googleId = String(payload.sub);
       user.authProvider = "google";
       user.isVerified = true;
 
       if (!user.name && cleanName) user.name = cleanName;
+
       if (!user.profileImage && payload.picture) {
         user.profileImage = String(payload.picture);
       }
@@ -475,6 +500,7 @@ export const googleLogin = async (req, res) => {
         role: user.role,
       },
     });
+
   } catch (error) {
     console.error("Google login error:", error);
 
