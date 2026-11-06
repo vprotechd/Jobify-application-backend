@@ -130,7 +130,25 @@ export default function GoogleAuthButton({ role = "jobseeker" }) {
 
       if (active) setBusy(true);
       try {
-        await googleLogin(idToken, role);
+        // await googleLogin(idToken, role);
+        console.log("GOOGLE TOKEN RECEIVED:", !!idToken);
+
+try {
+  const result = await googleLogin(idToken, role);
+  console.log("JOBIFY BACKEND GOOGLE LOGIN:", result);
+} catch (error) {
+  console.error("JOBIFY BACKEND GOOGLE LOGIN ERROR:", {
+    message: error?.message,
+    status: error?.response?.status,
+    data: error?.response?.data,
+  });
+
+  toast.error(
+    error?.response?.data?.message ||
+    error?.message ||
+    "Google backend login failed."
+  );
+}
       } catch (error) {
         toast.error(
           error?.response?.data?.message ||
@@ -148,31 +166,49 @@ export default function GoogleAuthButton({ role = "jobseeker" }) {
     };
   }, [response, googleLogin, role]);
 
-  const signIn = async () => {
-    if (!configured) {
-      toast.error(
-        `Google Sign-In is not configured for ${Platform.OS}. Add the correct Google client ID to frontend/.env.`
-      );
-      return;
-    }
-    if (!request || busy) return;
+ const signIn = async () => {
+  if (!configured) {
+    toast.error(
+      `Google Sign-In is not configured for ${Platform.OS}.`
+    );
+    return;
+  }
 
-    // Helps verify the exact URI that must be registered in Google Cloud Console.
-    if (Platform.OS === "web") {
-      console.info("[Jobify Google OAuth] redirect URI:", redirectUri);
-    }
+  if (!request || busy) return;
 
-    try {
-      setBusy(true);
-      const result = await promptAsync();
-      if (result?.type !== "success") setBusy(false);
-    } catch (error) {
-      toast.error(
-        error?.message || "Unable to open Google sign-in."
-      );
+  try {
+    console.log("[JOBIFY GOOGLE OAUTH DEBUG]", {
+      platform: Platform.OS,
+      clientId: request?.clientId,
+      redirectUri: request?.redirectUri,
+      responseType: request?.responseType,
+      scopes: request?.scopes,
+      url: request?.url,
+    });
+
+    setBusy(true);
+
+    const result = await promptAsync();
+
+    console.log("[JOBIFY GOOGLE OAUTH RESULT]", {
+      type: result?.type,
+      error: result?.error,
+      params: result?.params,
+    });
+
+    if (result?.type !== "success") {
       setBusy(false);
     }
-  };
+  } catch (error) {
+    console.error("[JOBIFY GOOGLE OAUTH ERROR]", error);
+
+    toast.error(
+      error?.message || "Unable to open Google sign-in."
+    );
+
+    setBusy(false);
+  }
+};
 
   return (
     <TouchableOpacity
